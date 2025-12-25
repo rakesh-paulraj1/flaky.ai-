@@ -22,7 +22,6 @@ export function ChatNavbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
-  const [chatsLoading, setChatsLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;

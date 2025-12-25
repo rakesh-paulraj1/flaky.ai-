@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { authentication } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
-import { v4 as uuidv4 } from "uuid";
 
-const activeRuns = new Set<string>();
+import { sandboxService } from "@/lib/services";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
-    if (!session?.user?.email) {
+    const session = await getServerSession(authentication);
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,40 +20,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    const chatId = uuidv4();
-
-    if (activeRuns.has(chatId)) {
-      return NextResponse.json(
-        { error: "Project is being created. Kindly wait" },
-        { status: 400 }
-      );
-    }
-
-
-    await prisma.chat.create({
+    const chat = await prisma.chat.create({
       data: {
-        id: chatId,
-        userId: user.id,
+        userId: session.user.id,
         title: prompt.length > 100 ? prompt.substring(0, 100) : prompt,
       },
     });
 
-
-
     
-
     return NextResponse.json({
       status: "success",
-      message: `Agent started for project ${chatId}.`,
-      chat_id: chatId,
+      message: `Agent started for project ${chat.id}.`,
+      chat_id: chat.id
     });
   } catch (error) {
     console.error("Chat creation error:", error);

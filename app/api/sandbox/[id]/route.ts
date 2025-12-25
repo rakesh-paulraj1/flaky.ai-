@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from "next/server";
+import { sandboxService } from "@/lib/services";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const sandbox = await sandboxService.getSandbox(id);
+    const host = sandbox.getHost(5173);
+  
+console.log(host);
+
+    return NextResponse.json({
+      host
+    });
+  } catch (error) {
+    console.error("Failed to get sandbox info:", error);
+    return NextResponse.json(
+      { error: "Failed to get sandbox info" },
+      { status: 500 }
+    );
+  }
+}

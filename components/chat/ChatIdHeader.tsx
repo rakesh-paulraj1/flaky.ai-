@@ -1,9 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, Eye, EyeOff } from "lucide-react";
-import type { UserData } from "@/api";
+import { useSession } from "next-auth/react";
 
 interface ChatIdHeaderProps {
-  userData: UserData | null;
   showPreview: boolean;
   onTogglePreview: () => void;
   onNewChat: () => void;
@@ -11,12 +10,17 @@ interface ChatIdHeaderProps {
 }
 
 export function ChatIdHeader({
-  userData,
+
   showPreview,
   onTogglePreview,
   onNewChat,
   onBack,
 }: ChatIdHeaderProps) {
+
+
+  const userData= useSession();
+  
+
   return (
     <div className="border-b border-white/5 backdrop-blur-md px-4 py-4">
       <div className="flex items-center justify-between">
@@ -29,18 +33,15 @@ export function ChatIdHeader({
           <ChevronLeft size={24} />
         </Button>
         <h1 className="font-mono font-semibold tracking-tight text-white">
-          WEB BUILDER AI
+          FLAKY AI
         </h1>
         <div className="flex items-center gap-2">
-          {userData && (
+          {userData.data?.user && (
             <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10">
-              <span className="text-sm text-white/60">{userData.email}</span>
+              <span className="text-sm text-white/60">{userData.data?.user?.email}</span>
               <span className="text-xs text-white/40">•</span>
-              <span className="text-sm text-white font-medium">
-                {userData.tokens_remaining} tokens
-              </span>
             </div>
-          )}
+          )}    
           <Button
             variant="ghost"
             size="icon"

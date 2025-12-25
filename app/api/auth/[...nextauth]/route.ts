@@ -55,7 +55,7 @@ export const authentication: NextAuthOptions = {
       return token;
     },
     async signIn({ user }: { user: User }) {
-      if (!user?.email) return false;
+      if (!user?.email || !user?.name) return false;
 
       try {
         await prisma.user.upsert({
