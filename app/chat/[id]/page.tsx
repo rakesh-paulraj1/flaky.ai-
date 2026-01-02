@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import apiClient from "@/api/client";
 import {
   ChatIdHeader,
   MessageBubble,
@@ -30,10 +29,90 @@ export default function ChatIdPage() {
   const [showPreview, setShowPreview] = useState(true);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   const [showAllToolsDropdown, setShowAllToolsDropdown] = useState(false);
+  const [files, setFiles] = useState<string[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const urlCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const streamRef = useRef<EventSource | null>(null);
+
+  const openStream = useCallback(() => {
+    if (streamRef.current) return;
+    const es = new EventSource(`/api/chat/${chatId}/stream`);
+    streamRef.current = es;
+
+    es.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "start") {
+          setIsBuilding(true);
+        } else if (msg.type === "partial") {
+          const payload = msg.payload || {};
+          
+          // Extract text content from different event types
+          let text = "";
+          if (payload.message) {
+            text = payload.message;
+          } else if (payload.e === "file_created" && payload.file_path) {
+            text = `Created file: ${payload.file_path}`;
+          } else if (payload.e === "tool_started" && payload.tool_name) {
+            text = `Running tool: ${payload.tool_name}`;
+          } else if (payload.e === "tool_completed" && payload.tool_name) {
+            text = `Completed: ${payload.tool_name}`;
+          } else if (payload.e === "planner_complete") {
+            text = "✓ Planning completed";
+          } else if (payload.e === "builder_complete") {
+            text = "✓ Build completed";
+          } else if (payload.e === "validation_success") {
+            text = "✓ Validation successful";
+          } else if (payload.e === "app_check_complete") {
+            text = "✓ Application check completed";
+          } else if (payload.e) {
+            text = `Event: ${payload.e}`;
+          }
+          
+          if (text) {
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.role === "assistant" && last.id === msg.id) {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: (last.content || "") + "\n" + text,
+                };
+                return updated;
+              }
+              return [
+                ...prev,
+                {
+                  id: msg.id,
+                  role: "assistant",
+                  content: text,
+                  created_at: new Date().toISOString(),
+                },
+              ];
+            });
+          }
+        } else if (msg.type === "message") {
+        } else if (msg.type === "done") {
+          setIsBuilding(false);
+        } else if (msg.type === "error") {
+          setError(msg.message || "Streaming error");
+          setIsBuilding(false);
+        }
+      } catch {
+      }
+    };
+
+    es.onerror = () => {
+      console.error("EventSource error");
+    };
+  }, [chatId]);
+
+  const closeStream = useCallback(() => {
+    streamRef.current?.close();
+    streamRef.current = null;
+  }, []);
 
   const checkUrlReady = useCallback(async (url: string): Promise<boolean> => {
     try {
@@ -47,47 +126,81 @@ export default function ChatIdPage() {
     }
   }, []);
 
-  const pollUrlUntilReady = useCallback((url: string) => {
+  const pollUrlUntilReady = useCallback(async (url: string) => {
     setIsCheckingUrl(true);
+    console.log("Starting URL health check for:", url);
     let attempts = 0;
-    const maxAttempts = 30;
-
-    if (urlCheckIntervalRef.current) clearInterval(urlCheckIntervalRef.current);
+    const maxAttempts = 20; 
 
     const checkInterval = setInterval(async () => {
       attempts++;
+      console.log(`Health check attempt ${attempts}/${maxAttempts}`);
+
       const isReady = await checkUrlReady(url);
 
       if (isReady || attempts >= maxAttempts) {
         clearInterval(checkInterval);
         setIsCheckingUrl(false);
-        setAppUrl(url);
+
+        if (isReady) {
+          console.log("URL is ready, setting iframe");
+          setAppUrl(url);
+        } else {
+          console.log("Max attempts reached, setting iframe anyway");
+          setAppUrl(url);
+        }
       }
-    }, 1500);
+    }, 1000);
 
     urlCheckIntervalRef.current = checkInterval;
   }, [checkUrlReady]);
 
-  const fetchSandboxInfo = useCallback(async () => {
-    if (!chatId) return;
-    try {
-      const res = await fetch(`/api/sandbox/${chatId}`);
-      if (!res.ok) throw new Error("Failed to load sandbox");
-      const data = await res.json();
-      
-      const url = `https://${data.host}`;
-      pollUrlUntilReady(url);
-    } catch (err) {
-      console.error("Error fetching sandbox info:", err);
-    }
-  }, [chatId, pollUrlUntilReady]);
 
   useEffect(() => {
-    if (chatId) {
-      fetchSandboxInfo();
-    }
-    setIsLoading(false);
-  }, [chatId, fetchSandboxInfo]);
+    if (!chatId) return;
+
+    const fetchMessagesAndStream = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load messages
+        const res = await fetch(`/api/chat/${chatId}/messages`);
+        if (!res.ok) throw new Error("Failed to load messages");
+        const loadedMessages: Message[] = await res.json();
+        setMessages(loadedMessages);
+
+        // Load sandbox info (ensures sandbox is created/started)
+        try {
+          const sandboxRes = await fetch(`/api/sandbox/${chatId}`);
+          if (sandboxRes.ok) {
+            const data = await sandboxRes.json();
+            const url = `https://${data.host}`;
+            if (data.files) setFiles(data.files);
+            pollUrlUntilReady(url);
+          }
+        } catch (err) {
+          console.error("Error fetching sandbox info:", err);
+        }
+
+        // Open stream if this is a new chat
+        const hasAssistantMessage = loadedMessages.some((msg) => msg.role === "assistant");
+        if (!hasAssistantMessage) {
+          openStream();
+        }
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+        setError(err instanceof Error ? err.message : "Failed to load messages");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchMessagesAndStream();
+
+    return () => {
+      closeStream();
+    };
+  }, [chatId, openStream, closeStream, checkUrlReady, pollUrlUntilReady]);
 
   useEffect(() => {
     return () => {
@@ -96,6 +209,18 @@ export default function ChatIdPage() {
       }
     };
   }, []);
+
+  // Cleanup: Close sandbox when leaving the page
+  useEffect(() => {
+    return () => {
+      if (chatId) {
+        // Call cleanup endpoint when component unmounts
+        fetch(`/api/sandbox/${chatId}/cleanup`, { method: "DELETE" }).catch(() => {
+          // Ignore errors on cleanup
+        });
+      }
+    };
+  }, [chatId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -130,35 +255,36 @@ export default function ChatIdPage() {
     }
   }, [isDragging]);
 
+
   const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isBuilding) return;
+  e.preventDefault();
+  if (!input.trim() || isBuilding) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-      created_at: new Date().toISOString(),
-    };
-
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    role: "user",
+    content: input.trim(),
+    created_at: new Date().toISOString(),
+  };
+  try {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsBuilding(true);
-    try {
-      const response = await apiClient.post<Message>("/api/chat", {
-        chatId,
-        prompt: userMessage.content
-      });
-      
-      if (response.data) {
-        setMessages((prev) => [...prev, response.data]);
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
-    } finally {
-      setIsBuilding(false);
-    }
-  };
+
+    const res = await fetch(`/api/chat/${chatId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: userMessage.content }),
+    });
+    if (!res.ok) throw new Error("Failed to save message");
+
+     openStream();
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Failed to send message");
+    setIsBuilding(false);
+  }
+};
+
 
   return (
     <div
@@ -243,8 +369,10 @@ export default function ChatIdPage() {
               appUrl={appUrl}
               isCheckingUrl={isCheckingUrl}
               previewWidth={previewWidth}
+              projectId={chatId}
+              files={files}
             />
-          )}
+          )}                                                                                                                    
         </div>
       </div>
     </div>

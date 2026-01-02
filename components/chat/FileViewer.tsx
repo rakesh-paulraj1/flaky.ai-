@@ -10,12 +10,11 @@ import {
   Download,
   Loader2,
   FolderArchive,
-} from "lucide-react";
-import apiClient from "@/api/client";
+} from "lucide-react";  
 
 interface FileViewerProps {
-  files: string[];
   projectId: string;
+  files?: string[];
 }
 
 interface FileNode {
@@ -169,23 +168,29 @@ function FileTreeNode({
   );
 }
 
-export function FileViewer({ files, projectId }: FileViewerProps) {
+export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) {
+  const [files, setFiles] = useState<string[]>(initialFiles || []);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
   const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  
   const fileTree = buildFileTree(files);
 
+  
   const fetchFileContent = async (filePath: string) => {
     setIsLoadingFile(true);
     try {
-      const response = await apiClient.get<{ content: string }>(
+      const response = await fetch(
         `/api/projects/${projectId}/files/${filePath}`,
       );
-      setFileContent(response.data.content);
+      const data = await response.json();
+      console.log("requesting contnet for fetchFileContent");
+      setFileContent(data.content);
     } catch (error) {
       console.error("Failed to fetch file content:", error);
-      setFileContent("// Error loading file content");
+      setFileContent("Error loading file content");
     } finally {
       setIsLoadingFile(false);
     }
@@ -235,6 +240,14 @@ export function FileViewer({ files, projectId }: FileViewerProps) {
   };
 
   useEffect(() => {
+    if (initialFiles) {
+      setFiles(initialFiles);
+    } else {
+      // fetchFiles();
+    }
+  }, [initialFiles]);
+
+  useEffect(() => {
     if (files.length > 0 && !selectedFile) {
       const firstFile =
         files.find((f) => !f.includes("/") || f.split("/").length === 1) ||
@@ -245,6 +258,16 @@ export function FileViewer({ files, projectId }: FileViewerProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [files]);
+
+
+  if (isLoadingFiles) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-white/40">
+        <Loader2 className="w-8 h-8 animate-spin mb-4" />
+        <p className="text-sm">Loading project files...</p>
+      </div>
+    );
+  }
 
   if (files.length === 0) {
     return (
@@ -258,7 +281,6 @@ export function FileViewer({ files, projectId }: FileViewerProps) {
 
   return (
     <div className="h-full flex">
-      {/* File Tree Sidebar */}
       <div className="w-64 border-r border-white/10 overflow-y-auto bg-black/30">
         <div className="sticky top-0 bg-black/50 backdrop-blur-sm border-b border-white/10 p-3 z-10">
           <div className="flex items-center justify-between mb-2">
@@ -294,11 +316,9 @@ export function FileViewer({ files, projectId }: FileViewerProps) {
         </div>
       </div>
 
-      {/* Editor Area */}
       <div className="flex-1 flex flex-col">
         {selectedFile ? (
           <>
-            {/* Editor Header */}
             <div className="flex items-center justify-between px-4 py-2 bg-black/30 border-b border-white/10">
               <div className="flex items-center gap-2">
                 {getFileIcon(selectedFile)}

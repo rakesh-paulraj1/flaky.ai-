@@ -2,14 +2,15 @@ import { Sandbox } from "@e2b/code-interpreter";
 import fs from "fs/promises";
 import path from "path";
 
-const SANDBOX_TIMEOUT = 1800;
+const SANDBOX_TIMEOUT = 300 * 1000;
 const PROJECTS_DIR = path.join(process.cwd(), "projects");
-
 const E2B_TEMPLATE_ID = "fabwcz4cxczc6d5r09pa";
+const DEV_SERVER_PORT = 5173;
 
 interface SandboxInfo {
   sandbox: Sandbox;
   lastAccess: number;
+  serverReady: boolean;
 }
 
 export class SandboxService {
@@ -54,35 +55,31 @@ export class SandboxService {
   }
 
   private async doGetSandbox(id: string): Promise<Sandbox> {
-    const now = Date.now();
+    const current_time = Date.now();
     const existing = this.sandboxes.get(id);
 
     if (existing) {
-      const { sandbox, lastAccess } = existing;
-      if (now - lastAccess < SANDBOX_TIMEOUT * 1000) {
-        try {
-          if (typeof sandbox.setTimeout === "function") {
-            await sandbox.setTimeout(SANDBOX_TIMEOUT);
-          }
-          await sandbox.files.list("/");
+      console.log("saandbox already exixts for id", id);
+      const time_elapsed = current_time - existing.lastAccess;
 
-          existing.lastAccess = now;
-          return sandbox;
-        } catch {
+      if (time_elapsed < SANDBOX_TIMEOUT * 1000) {
+        try {
+          await existing.sandbox.setTimeout(SANDBOX_TIMEOUT);
+          existing.lastAccess = current_time;
+          console.log(` Reusing existing sandbox for ${id}`);
+
+          return existing.sandbox;
+        } catch (error) {
           console.warn(
-            `Sandbox for project ${id} is defunct or unresponsive. Recreating...`
+            `Defunct sandbox detected for ${id}:`,
+            error
           );
-          // Crucial: remove from cache first
           this.sandboxes.delete(id);
-          try {
-            await sandbox.kill();
-          } catch {
-            // Ignore errors when killing a dead sandbox
-          }
         }
       } else {
+        console.log(` Sandbox expired for ${id}, recreating...`);
         try {
-          await sandbox.kill();
+          await existing.sandbox.kill();
         } catch (e) {
           console.log("Failed to kill expired sandbox", e);
         }
@@ -90,52 +87,123 @@ export class SandboxService {
       }
     }
 
+    console.log(`Initializing new sandbox for project id = ${id}`);
     const sandbox = await Sandbox.create(E2B_TEMPLATE_ID);
+
+    console.log(
+      `[Lifecycle]Sandbox created: ${sandbox.sandboxId} for project ${id}`
+    );
 
     this.sandboxes.set(id, {
       sandbox,
-      lastAccess: now,
+      lastAccess: current_time,
+      serverReady: false,
     });
 
-    await this.restoreFilesFromDisk(id, sandbox);
-
-    // Start dev server in the background without blocking the return of the sandbox
-    // This allows concurrent requests (like file listing) to proceed while the app boots
-    this.startDevServer(sandbox).catch((error) => {
-      console.error("Failed to start application in sandbox:", error);
-    });
+    // await this.restoreFilesFromDisk(id, sandbox);
+    await this.startDevServer(id, sandbox);
 
     return sandbox;
   }
 
-  private async startDevServer(sandbox: Sandbox) {
-    console.log(`Starting dev server in sandbox ${sandbox.sandboxId}...`);
-    await sandbox.commands.run("npm run dev", {
-      background: true,
-      cwd: "/home/user/react-app",
-    });
+  private async startDevServer(id: string, sandbox: Sandbox): Promise<void> {
+    console.log(` Starting dev server for ${id}...`);
 
-    // Optionally we could wait for port here if we wanted to track internal state,
-    // but the frontend already polls the URL, so background is fine.
+    try {
+      await sandbox.commands.run("cd /home/user/react-app && npm run dev", {
+        background: true,
+      });
+    } catch (error) {
+      console.error(
+        `Failed to start dev server for ${id}:`,
+        error
+      );
+    }
+  }
+
+  public async getHost(id: string): Promise<string> {
+    const sandbox = await this.getSandbox(id);
+    return sandbox.getHost(DEV_SERVER_PORT);
+  }
+
+  public async isServerReady(id: string): Promise<boolean> {
+    const info = this.sandboxes.get(id);
+    return info?.serverReady || false;
   }
 
   private async restoreFilesFromDisk(id: string, sandbox: Sandbox) {
     const projectPath = path.join(PROJECTS_DIR, id);
     try {
       await fs.access(projectPath);
+      console.log(` Restoring files for ${id}...`);
+
       const files = await this.getAllFiles(projectPath);
+      console.log(`Found ${files.length} files to restore`);
+
       for (const file of files) {
         const relativePath = path.relative(projectPath, file);
         const content = await fs.readFile(file);
 
-        // Always restore to /home/user/react-app to match build scripts
         await sandbox.files.write(
           path.join("/home/user/react-app", relativePath),
           content.toString()
         );
       }
+
+      console.log(`Files restored for ${id}`);
     } catch {
       console.log(`No files to restore for project ${id}`);
+    }
+  }
+
+  public async getSandboxFiles(id: string): Promise<string[]> {
+    const info = this.sandboxes.get(id);
+    if (!info) {
+      console.log(`No sandbox found for ${id} in getSandboxFiles`);
+      return [];
+    }
+
+    try {
+      const get_files_script = `
+import os
+import json
+
+def list_files_recursive(path):
+    file_structure = []
+    if not os.path.exists(path):
+        return []
+    for root, dirs, files in os.walk(path):
+        # Filter out common directories
+        dirs[:] = [d for d in dirs if d not in ['node_modules', '.git', '__pycache__', '.next']]
+        for name in files:
+            full_path = os.path.join(root, name)
+            rel_path = os.path.relpath(full_path, path)
+            if not rel_path.startswith('..'):
+                file_structure.append(rel_path)
+    return file_structure
+
+print(json.dumps(list_files_recursive("/home/user/react-app")))
+`;
+      await info.sandbox.files.write("/tmp/list_files.py", get_files_script);
+      const proc = await info.sandbox.commands.run(
+        "python3 /tmp/list_files.py"
+      );
+
+      if (proc.exitCode === 0) {
+        const files = JSON.parse(proc.stdout.trim() || "[]");
+        console.log(`Found ${files.length} files for project ${id}`);
+        return files;
+      }
+      console.error(`List files script failed for ${id}:`,
+        proc.stderr
+      );
+      return [];
+    } catch (error) {
+      console.error(
+        `Failed to list files for project ${id}:`,
+        error
+      );
+      return [];
     }
   }
 
@@ -147,7 +215,8 @@ export class SandboxService {
     await this.ensureDirectory(projectPath);
 
     try {
-      // Use the same recursive listing logic as the API
+      console.log(`Snapshotting files for ${id}...`);
+
       const get_files_script = `
 import os
 import json
@@ -172,6 +241,8 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
 
       if (proc.exitCode === 0) {
         const files: string[] = JSON.parse(proc.stdout.trim() || "[]");
+        console.log(`Snapshotting ${files.length} files...`);
+
         for (const fullPath of files) {
           try {
             const content = await info.sandbox.files.read(fullPath);
@@ -187,10 +258,39 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
             console.warn(`Could not read file ${fullPath} during snapshot`, e);
           }
         }
+
+        console.log(`Snapshot complete for ${id}`);
       }
     } catch (error) {
-      console.error(`Failed to snapshot files for project ${id}:`, error);
+      console.error(
+        `Failed to snapshot files for ${id}:`,
+        error
+      );
     }
+  }
+
+  public async readSandboxFile(id: string, filePath: string): Promise<string> {
+    const sandbox = await this.getSandbox(id);
+    const normalizedPath = path
+      .normalize(filePath)
+      .replace(/^(\.\.(\/|\\|$))+/, "");
+
+    const possiblePaths = [
+      path.join("/home/user/react-app", normalizedPath),
+      path.join("/home/user", normalizedPath),
+      normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`,
+    ];
+
+    for (const p of possiblePaths) {
+      try {
+        const content = await sandbox.files.read(p);
+        return content;
+      } catch {
+        continue;
+      }
+    }
+
+    throw new Error(`File not found: ${filePath}`);
   }
 
   private async getAllFiles(dir: string): Promise<string[]> {
@@ -207,6 +307,7 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
   public async closeSandbox(id: string) {
     const info = this.sandboxes.get(id);
     if (info) {
+      console.log(`Closing sandbox for ${id}`);
       try {
         await info.sandbox.kill();
       } catch (error) {
@@ -215,7 +316,11 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
       this.sandboxes.delete(id);
     }
   }
+
 }
+
+
+
 
 const globalForSandbox = globalThis as unknown as {
   sandboxService: SandboxService | undefined;

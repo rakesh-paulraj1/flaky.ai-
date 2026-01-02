@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sandboxService } from "@/lib/services";
+import { sandboxService } from "@/langgraph/services";
 
 export async function GET(
   req: NextRequest,
@@ -9,11 +9,11 @@ export async function GET(
     const { id } = await params;
     const sandbox = await sandboxService.getSandbox(id);
     const host = sandbox.getHost(5173);
-  
-console.log(host);
+    const files = await sandboxService.getSandboxFiles(id);
 
     return NextResponse.json({
-      host
+      host,
+      files,
     });
   } catch (error) {
     console.error("Failed to get sandbox info:", error);
