@@ -2,11 +2,6 @@
 import { z } from "zod";
 export const PlanSchema = z.object({
   overview: z.string().describe("Brief description of what the application does"),
-  components: z.array(z.object({
-    name: z.string().describe("Component name"),
-    purpose: z.string().describe("What this component does"),
-    props: z.array(z.string()).optional().describe("Props the component accepts"),
-  })).describe("List of React components to create"),
   pages: z.array(z.object({
     name: z.string().describe("Page name"),
     route: z.string().describe("URL route for this page"),

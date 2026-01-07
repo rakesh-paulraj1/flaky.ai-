@@ -97,8 +97,8 @@ export function PreviewPanel({
                   <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Eye className="w-8 h-8 text-white/20" />
                   </div>
-                  <p className="text-white/60 font-medium">No Preview Available</p>
-                  <p className="text-white/40 text-sm mt-1">Deploy your app to see the preview here</p>
+                  <p className="text-white/60 font-medium">Please wait until the sandbox environment starts</p>
+                  
                 </div>
               </div>
             )}

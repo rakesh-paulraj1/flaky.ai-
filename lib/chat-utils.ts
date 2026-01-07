@@ -1,8 +1,7 @@
 import { Message, ToolCall } from "./chat-types";
 
 export function consolidateMessages(messages: Message[]): Message[] {
-  // Simple consolidation: group consecutive segments if needed
-  // For now, we'll just return the messages as is
+
   return messages;
 }
 

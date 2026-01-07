@@ -21,7 +21,7 @@ export async function GET(
 
 
   const chat = await prisma.chat.findUnique({
-    where: { id: chatId, userId: session.user.id },
+    where: { id: chatId },
   });
   if (!chat) {
     return new Response(JSON.stringify({ error: "Chat not found" }), { status: 404 });
@@ -36,6 +36,7 @@ export async function GET(
   });
 
   if (!latestMessage) {
+    console.log("no messages available")
     return new Response(JSON.stringify({ error: "No user message found" }), { status: 404 });
   }
 
@@ -57,9 +58,7 @@ export async function GET(
           userPrompt: latestMessage.content,
           sandbox,
           sendEvent: async (payload) => {
-            // Stream each agent event to the client
-            const eventPayload = {
-              type: "partial",
+            const eventPayload = {type: "partial",
               id: messageId,
               payload,
             };

@@ -16,13 +16,11 @@ export const AgentState = Annotation.Root({
     default: () => "",
   }),
 
-
-  plan: Annotation<Record<string, unknown> | null>({
+  plan: Annotation<string>({
     reducer: (_, y) => y,
-    default: () => null,
+    default: () => "",
   }),
 
-  
   files_created: Annotation<string[]>({
     reducer: (x, y) => [...x, ...y],
     default: () => [],
@@ -30,28 +28,6 @@ export const AgentState = Annotation.Root({
   files_modified: Annotation<string[]>({
     reducer: (x, y) => [...x, ...y],
     default: () => [],
-  }),
-
-  current_errors: Annotation<Record<string, unknown>>({
-    reducer: (_, y) => y,
-    default: () => ({}),
-  }),
-  validation_errors: Annotation<Array<Record<string, unknown>>>({
-    reducer: (x, y) => [...x, ...y],
-    default: () => [],
-  }),
-  runtime_errors: Annotation<Array<Record<string, unknown>>>({
-    reducer: (x, y) => [...x, ...y],
-    default: () => [],
-  }),
-
-  retry_count: Annotation<Record<string, number>>({
-    reducer: (x, y) => ({ ...x, ...y }),
-    default: () => ({}),
-  }),
-  max_retries: Annotation<number>({
-    reducer: (_, y) => y,
-    default: () => 3,
   }),
 
   sandbox: Annotation<Sandbox | null>({
@@ -76,7 +52,23 @@ export const AgentState = Annotation.Root({
     reducer: (_, y) => y,
     default: () => null,
   }),
+
+  validation_passed: Annotation<boolean>({
+    reducer: (_, y) => y,
+    default: () => false,
+  }),
+  validation_issues: Annotation<string[]>({
+    reducer: (_, y) => y,
+    default: () => [],
+  }),
+  retry_count: Annotation<number>({
+    reducer: (_, y) => y,
+    default: () => 0,
+  }),
+  max_retries: Annotation<number>({
+    reducer: (_, y) => y,
+    default: () => 2,
+  }),
 });
 
-// Export the state type for use in nodes
 export type AgentStateType = typeof AgentState.State;

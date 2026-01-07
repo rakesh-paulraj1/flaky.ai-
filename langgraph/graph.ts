@@ -4,10 +4,9 @@ import { AgentState } from "./state";
 import {
   plannerNode,
   builderNode,
-  codeValidatorNode,
-  applicationCheckerNode,
-  shouldRetryBuilderForValidation,
-  shouldRetryBuilderOrFinish,
+  Validator,
+  shouldContinueNode,
+  executorNode,
 } from "./nodes";
 import { sandboxService } from "./services";
 
@@ -34,36 +33,27 @@ export function createAgentGraph(config: AgentConfig) {
     return builderNode(state, sendEvent);
   };
 
-  const codeValidatorWrapper = async (state: typeof AgentState.State) => {
-    return codeValidatorNode(state, sendEvent);
+  const validatorWrapper = async (state: typeof AgentState.State) => {
+    return Validator(state, sendEvent);
   };
 
-  const applicationCheckerWrapper = async (state: typeof AgentState.State) => {
-    return applicationCheckerNode(state, sendEvent);
+  const executorWrapper = async (state: typeof AgentState.State) => {
+    return executorNode(state, sendEvent);
   };
 
   const workflow = new StateGraph(AgentState)
     .addNode("planner", plannerWrapper)
     .addNode("builder", builderWrapper)
-    .addNode("code_validator", codeValidatorWrapper)
-    .addNode("application_checker", applicationCheckerWrapper)
-  
+    .addNode("validator", validatorWrapper)
+    .addNode("executor", executorWrapper)
     .addEdge(START, "planner")
     .addEdge("planner", "builder")
-    .addEdge("builder", "code_validator")
-    .addConditionalEdges(
-      "code_validator",
-      shouldRetryBuilderForValidation,
-      ["builder", "application_checker"]
-    )
-    .addConditionalEdges(
-      "application_checker",
-      (state) => {
-        const result = shouldRetryBuilderOrFinish(state);
-        return result === "end" ? "__end__" : result;
-      },
-      ["builder", "__end__"]
-    );
+    .addEdge("builder", "validator")
+    .addConditionalEdges("validator", shouldContinueNode, {
+      builder: "builder",
+      executor: "executor",
+    })
+    .addEdge("executor", "__end__"); 
 
   const app = workflow.compile();
 
@@ -72,13 +62,10 @@ export function createAgentGraph(config: AgentConfig) {
 
 
 export async function runAgent(config: AgentConfig): Promise<typeof AgentState.State> {
-  const { projectId, userPrompt, sendEvent, maxRetries = 3 } = config;
+  const { projectId, userPrompt, sendEvent, maxRetries = 1 } = config;
 
   const sandbox = config.sandbox || await sandboxService.getSandbox(projectId);
 
-  if (!config.sandbox) {
-    sendEvent?.({ e: "sandbox_ready", message: "Sandbox initialized and ready" });
-  }
 
   const app = createAgentGraph({ ...config, sandbox });
 

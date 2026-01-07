@@ -18,13 +18,20 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
     const chat = await prisma.chat.create({
       data: {
         userId: session.user.id,
         title: prompt.length > 100 ? prompt.substring(0, 100) : prompt,
       },
     });
+
+    await prisma.message.create({
+      data:{
+       role:"user",
+       chatId:chat.id,
+       content:prompt
+      }
+    })
 
     
     return NextResponse.json({

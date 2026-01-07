@@ -14,26 +14,31 @@ datasource db {
 }
 
 model User {
-  id              Int       @id @default(autoincrement())
-  email           String    @unique
+  id              Int        @id @default(autoincrement())
+  email           String     @unique
   name            String
-  createdAt       DateTime  @default(now())
+  createdAt       DateTime   @default(now())
   lastQueryAt     DateTime?
-  tokensRemaining Int       @default(2)
+  tokensRemaining Int        @default(2)
   tokensResetAt   DateTime?
   Googleapi       String?
   chats           Chat[]
+
 }
 
 model Chat {
-  id        String    @id @default(uuid())
+  id        String     @id @default(uuid())
   userId    Int
   title     String
   appUrl    String?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
+  project   Project?
 }
+
+
+
 
 model Message {
   id        String   @id @default(uuid())
@@ -44,4 +49,17 @@ model Message {
   toolCalls Json?
   createdAt DateTime @default(now())
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id                      String   @id @default(uuid())
+  chatId                  String   @unique
+  productName             String
+  imageLink               String
+  ctalink                 String
+  productDetails          String  @db.Text
+  videoGenerationEntities String  @db.Text
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  chat                    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }

@@ -17,6 +17,7 @@ export class SandboxService {
   private static instance: SandboxService;
   private sandboxes: Map<string, SandboxInfo> = new Map();
   private pendingRequests: Map<string, Promise<Sandbox>> = new Map();
+  private scheduledCloses: Map<string, NodeJS.Timeout> = new Map();
 
   private constructor() {
     this.ensureDirectory(PROJECTS_DIR);
@@ -61,12 +62,21 @@ export class SandboxService {
     if (existing) {
       console.log("saandbox already exixts for id", id);
       const time_elapsed = current_time - existing.lastAccess;
-
-      if (time_elapsed < SANDBOX_TIMEOUT * 1000) {
+      if (time_elapsed < SANDBOX_TIMEOUT) {
         try {
           await existing.sandbox.setTimeout(SANDBOX_TIMEOUT);
           existing.lastAccess = current_time;
+          // cancel any scheduled close when sandbox is re-used
+          const scheduled = this.scheduledCloses.get(id);
+          if (scheduled) {
+            clearTimeout(scheduled);
+            this.scheduledCloses.delete(id);
+          }
           console.log(` Reusing existing sandbox for ${id}`);
+          if (!existing.serverReady) {
+            console.log(` Dev server not ready for ${id}, starting...`);
+            await this.startDevServer(id, existing.sandbox);
+          }
 
           return existing.sandbox;
         } catch (error) {
@@ -106,6 +116,25 @@ export class SandboxService {
     return sandbox;
   }
 
+  public scheduleCloseSandbox(id: string, ttlMs = 5 * 60 * 1000) {
+    // clear existing scheduled close
+    const existingTimer = this.scheduledCloses.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        console.log(`Scheduled close triggered for sandbox ${id}`);
+        await this.closeSandbox(id);
+      } catch (e) {
+        console.error(`Error during scheduled sandbox close for ${id}:`, e);
+      }
+    }, ttlMs);
+
+    this.scheduledCloses.set(id, timer);
+  }
+
   private async startDevServer(id: string, sandbox: Sandbox): Promise<void> {
     console.log(` Starting dev server for ${id}...`);
 
@@ -113,6 +142,13 @@ export class SandboxService {
       await sandbox.commands.run("cd /home/user/react-app && npm run dev", {
         background: true,
       });
+      
+      // Mark server as ready
+      const info = this.sandboxes.get(id);
+      if (info) {
+        info.serverReady = true;
+        console.log(` Dev server marked as ready for ${id}`);
+      }
     } catch (error) {
       console.error(
         `Failed to start dev server for ${id}:`,
@@ -306,6 +342,13 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
 
   public async closeSandbox(id: string) {
     const info = this.sandboxes.get(id);
+    // clear any scheduled timer
+    const scheduled = this.scheduledCloses.get(id);
+    if (scheduled) {
+      clearTimeout(scheduled);
+      this.scheduledCloses.delete(id);
+    }
+
     if (info) {
       console.log(`Closing sandbox for ${id}`);
       try {

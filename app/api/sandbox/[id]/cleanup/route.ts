@@ -14,11 +14,10 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    
-    // Close sandbox
-    await sandboxService.closeSandbox(id);
-    
-    return NextResponse.json({ success: true, message: "Sandbox closed" });
+
+    sandboxService.scheduleCloseSandbox(id, 5 * 60 * 1000);
+
+    return NextResponse.json({ success: true, message: "Sandbox scheduled to close" });
   } catch (error) {
     console.error("Failed to close sandbox:", error);
     return NextResponse.json(

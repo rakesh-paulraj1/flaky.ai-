@@ -4,7 +4,6 @@ import { ArrowUp, Plus, Paperclip } from "lucide-react";
 
 interface ChatInputProps {
   input: string;
-  wsConnected: boolean;
   isBuilding: boolean;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
@@ -12,7 +11,7 @@ interface ChatInputProps {
 
 export function ChatInput({
   input,
-  wsConnected,
+  
   isBuilding,
   onInputChange,
   onSubmit,
@@ -28,7 +27,7 @@ export function ChatInput({
               onChange={(e) => onInputChange(e.target.value)}
               placeholder="Type your message..."
               className="flex-1 border-0 bg-transparent text-white font-sans placeholder:text-white/40 focus-visible:ring-0"
-              disabled={!wsConnected || isBuilding}
+              disabled={ isBuilding}
             />
             <div className="flex items-center gap-1">
               <button
@@ -45,7 +44,7 @@ export function ChatInput({
               </button>
               <Button
                 type="submit"
-                disabled={!wsConnected || !input.trim() || isBuilding}
+                disabled={ !input.trim() || isBuilding}
                 size="icon"
                 className="rounded-lg w-8 h-8 bg-white text-black hover:bg-slate-100"
               >

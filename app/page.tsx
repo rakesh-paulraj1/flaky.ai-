@@ -127,7 +127,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* How It Works Section */}
         <section className="py-20 px-6 border-t border-neutral-800">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-16">
@@ -167,7 +166,7 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Watch Card */}
+             
               <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
                 <h3 className="text-2xl font-semibold mb-3">Watch it build</h3>
                 <p className="text-neutral-400 mb-8">

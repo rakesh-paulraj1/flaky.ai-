@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -49,7 +48,6 @@ export default function ChatIdPage() {
         } else if (msg.type === "partial") {
           const payload = msg.payload || {};
           
-          // Extract text content from different event types
           let text = "";
           if (payload.message) {
             text = payload.message;
@@ -68,7 +66,7 @@ export default function ChatIdPage() {
           } else if (payload.e === "app_check_complete") {
             text = "✓ Application check completed";
           } else if (payload.e) {
-            text = `Event: ${payload.e}`;
+            text = `${payload.e}`;
           }
           
           if (text) {
@@ -134,16 +132,12 @@ export default function ChatIdPage() {
 
     const checkInterval = setInterval(async () => {
       attempts++;
-      console.log(`Health check attempt ${attempts}/${maxAttempts}`);
-
       const isReady = await checkUrlReady(url);
-
       if (isReady || attempts >= maxAttempts) {
         clearInterval(checkInterval);
         setIsCheckingUrl(false);
 
         if (isReady) {
-          console.log("URL is ready, setting iframe");
           setAppUrl(url);
         } else {
           console.log("Max attempts reached, setting iframe anyway");
@@ -153,8 +147,8 @@ export default function ChatIdPage() {
     }, 1000);
 
     urlCheckIntervalRef.current = checkInterval;
+    
   }, [checkUrlReady]);
-
 
   useEffect(() => {
     if (!chatId) return;
@@ -163,26 +157,25 @@ export default function ChatIdPage() {
       try {
         setIsLoading(true);
         
-        // Load messages
         const res = await fetch(`/api/chat/${chatId}/messages`);
         if (!res.ok) throw new Error("Failed to load messages");
         const loadedMessages: Message[] = await res.json();
         setMessages(loadedMessages);
 
-        // Load sandbox info (ensures sandbox is created/started)
         try {
           const sandboxRes = await fetch(`/api/sandbox/${chatId}`);
           if (sandboxRes.ok) {
             const data = await sandboxRes.json();
             const url = `https://${data.host}`;
             if (data.files) setFiles(data.files);
-            pollUrlUntilReady(url);
+  
+            await pollUrlUntilReady(url);
           }
         } catch (err) {
           console.error("Error fetching sandbox info:", err);
         }
 
-        // Open stream if this is a new chat
+    
         const hasAssistantMessage = loadedMessages.some((msg) => msg.role === "assistant");
         if (!hasAssistantMessage) {
           openStream();
@@ -200,7 +193,7 @@ export default function ChatIdPage() {
     return () => {
       closeStream();
     };
-  }, [chatId, openStream, closeStream, checkUrlReady, pollUrlUntilReady]);
+  }, [chatId, openStream, closeStream, checkUrlReady]);
 
   useEffect(() => {
     return () => {
@@ -210,13 +203,12 @@ export default function ChatIdPage() {
     };
   }, []);
 
-  // Cleanup: Close sandbox when leaving the page
+  
   useEffect(() => {
     return () => {
       if (chatId) {
-        // Call cleanup endpoint when component unmounts
+     
         fetch(`/api/sandbox/${chatId}/cleanup`, { method: "DELETE" }).catch(() => {
-          // Ignore errors on cleanup
         });
       }
     };
@@ -341,15 +333,16 @@ export default function ChatIdPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            <ToolCallsDropdown
-              toolCalls={getAllToolCalls(messages)}
-              isExpanded={showAllToolsDropdown}
-              onToggle={() => setShowAllToolsDropdown(!showAllToolsDropdown)}
-            />
+            {getAllToolCalls(messages).length > 0 && (
+              <ToolCallsDropdown
+                toolCalls={getAllToolCalls(messages)}
+                isExpanded={showAllToolsDropdown}
+                onToggle={() => setShowAllToolsDropdown(!showAllToolsDropdown)}
+              />
+            )}
 
             <ChatInput
               input={input}
-              wsConnected={true}
               isBuilding={isBuilding}
               onInputChange={setInput}
               onSubmit={handleSendMessage}
