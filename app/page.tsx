@@ -244,7 +244,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Iterate Section */}
               <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
                 <h3 className="text-2xl font-semibold mb-3">
                   Iterate with conversation

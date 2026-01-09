@@ -7,7 +7,7 @@ export default async function proxy(req: NextRequest) {
 
   const token = await getToken({ req, secret });
   if (token && pathname === "/") {
-    return NextResponse.redirect(new URL("/chat", req.url));
+    return NextResponse.redirect(new URL("/creative", req.url));
   }
 
   if (!token) {

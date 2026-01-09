@@ -11,6 +11,7 @@ import {
 } from "@/components/chat";
 import { getAllToolCalls } from "@/lib/chat-utils";
 import type { Message } from "@/lib/chat-types";
+import { getChatMessages } from "@/app/actions/chats";
 
 export default function ChatIdPage() {
   const params = useParams();
@@ -157,10 +158,8 @@ export default function ChatIdPage() {
       try {
         setIsLoading(true);
         
-        const res = await fetch(`/api/chat/${chatId}/messages`);
-        if (!res.ok) throw new Error("Failed to load messages");
-        const loadedMessages: Message[] = await res.json();
-        setMessages(loadedMessages);
+        const messages=await getChatMessages(chatId);
+        setMessages(messages);
 
         try {
           const sandboxRes = await fetch(`/api/sandbox/${chatId}`);
@@ -176,7 +175,7 @@ export default function ChatIdPage() {
         }
 
     
-        const hasAssistantMessage = loadedMessages.some((msg) => msg.role === "assistant");
+        const hasAssistantMessage = messages.some((msg) => msg.role === "assistant");
         if (!hasAssistantMessage) {
           openStream();
         }

@@ -23,6 +23,7 @@ model User {
   tokensResetAt   DateTime?
   Googleapi       String?
   chats           Chat[]
+  projects        Project[]
 
 }
 
@@ -51,15 +52,25 @@ model Message {
   chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
 
+enum ProjectState {
+  INITIAL
+  CREATIVE
+  DEPLOYED
+}
+
 model Project {
-  id                      String   @id @default(uuid())
-  chatId                  String   @unique
+  id                      String       @id @default(uuid())
+  chatId                  String       @unique
   productName             String
+  userId                  Int
   imageLink               String
   ctalink                 String
-  productDetails          String  @db.Text
-  videoGenerationEntities String  @db.Text
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
-  chat                    Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-}
+  productDetails          String       @db.Text
+  imageGenerationEntities String       @db.Text
+  generatedimageLink      String?
+  state                   ProjectState @default(INITIAL)
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  chat                    Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+} 

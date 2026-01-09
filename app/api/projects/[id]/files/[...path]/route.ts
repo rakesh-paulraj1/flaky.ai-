@@ -9,7 +9,7 @@ export async function GET(
     const { id, path: pathSegments } = await params;
     const filePath = pathSegments.join("/");
 
-    const content = await sandboxService.readSandboxFile(id, filePath);
+    const content =await sandboxService.readSandboxFile(id, filePath);
 
     return NextResponse.json({ content });
   } catch (error) {

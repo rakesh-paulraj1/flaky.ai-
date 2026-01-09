@@ -2,10 +2,9 @@ import { tool, ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import * as path from "path";
-import { writer } from "@langchain/langgraph";
 
 
-type EventSender = (payload: Record<string, unknown>) => void;
+
 
 const REACT_APP_PATH = "/home/user/react-app/src/pages";
 

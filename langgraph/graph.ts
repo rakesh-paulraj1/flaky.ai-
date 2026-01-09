@@ -10,9 +10,13 @@ import {
 } from "./nodes";
 import { sandboxService } from "./services";
 
-
 type EventSender = (payload: Record<string, unknown>) => void;
 
+export interface ProjectContext {
+  productName: string;
+  productDescription: string;
+  imageLink: string;
+}
 
 export interface AgentConfig {
   projectId: string;
@@ -20,6 +24,7 @@ export interface AgentConfig {
   sendEvent: EventSender | null;
   sandbox?: Sandbox;
   maxRetries?: number;
+  projectContext?: ProjectContext;
 }
 
 export function createAgentGraph(config: AgentConfig) {
@@ -53,19 +58,26 @@ export function createAgentGraph(config: AgentConfig) {
       builder: "builder",
       executor: "executor",
     })
-    .addEdge("executor", "__end__"); 
+    .addEdge("executor", "__end__");
 
   const app = workflow.compile();
 
   return app;
 }
 
+export async function runAgent(
+  config: AgentConfig
+): Promise<typeof AgentState.State> {
+  const {
+    projectId,
+    userPrompt,
+    sendEvent,
+    maxRetries = 1,
+    projectContext,
+  } = config;
 
-export async function runAgent(config: AgentConfig): Promise<typeof AgentState.State> {
-  const { projectId, userPrompt, sendEvent, maxRetries = 1 } = config;
-
-  const sandbox = config.sandbox || await sandboxService.getSandbox(projectId);
-
+  const sandbox =
+    config.sandbox || (await sandboxService.getSandbox(projectId));
 
   const app = createAgentGraph({ ...config, sandbox });
 
@@ -75,6 +87,9 @@ export async function runAgent(config: AgentConfig): Promise<typeof AgentState.S
     enhanced_prompt: userPrompt,
     sandbox,
     max_retries: maxRetries,
+    product_name: projectContext?.productName || "",
+    product_description: projectContext?.productDescription || "",
+    image_link: projectContext?.imageLink || "",
   };
 
   const result = await app.invoke(initialState);
@@ -83,5 +98,3 @@ export async function runAgent(config: AgentConfig): Promise<typeof AgentState.S
 
   return result;
 }
-
-

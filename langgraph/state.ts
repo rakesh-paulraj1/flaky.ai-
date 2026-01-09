@@ -2,7 +2,6 @@ import { Annotation } from "@langchain/langgraph";
 import type { Sandbox } from "@e2b/code-interpreter";
 
 export const AgentState = Annotation.Root({
- 
   project_id: Annotation<string>({
     reducer: (_, y) => y,
     default: () => "",
@@ -12,6 +11,18 @@ export const AgentState = Annotation.Root({
     default: () => "",
   }),
   enhanced_prompt: Annotation<string>({
+    reducer: (_, y) => y,
+    default: () => "",
+  }),
+  product_name: Annotation<string>({
+    reducer: (_, y) => y,
+    default: () => "",
+  }),
+  product_description: Annotation<string>({
+    reducer: (_, y) => y,
+    default: () => "",
+  }),
+  image_link: Annotation<string>({
     reducer: (_, y) => y,
     default: () => "",
   }),

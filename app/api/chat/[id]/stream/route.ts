@@ -11,24 +11,33 @@ export async function GET(
 ) {
   const session = await getServerSession(authentication);
   if (!session?.user?.id) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+    });
   }
 
   const { id: chatId } = await params;
   if (!chatId) {
-    return new Response(JSON.stringify({ error: "Missing chat ID" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Missing chat ID" }), {
+      status: 400,
+    });
   }
 
 
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
+    include: {
+      project: true,
+    },
   });
   if (!chat) {
-    return new Response(JSON.stringify({ error: "Chat not found" }), { status: 404 });
+    return new Response(JSON.stringify({ error: "Chat not found" }), {
+      status: 404,
+    });
   }
 
   const latestMessage = await prisma.message.findFirst({
-    where: { 
+    where: {
       chatId,
       role: "user",
     },
@@ -36,9 +45,20 @@ export async function GET(
   });
 
   if (!latestMessage) {
-    console.log("no messages available")
-    return new Response(JSON.stringify({ error: "No user message found" }), { status: 404 });
+    console.log("no messages available");
+    return new Response(JSON.stringify({ error: "No user message found" }), {
+      status: 404,
+    });
   }
+
+  const projectContext = chat.project
+    ? {
+        productName: chat.project.productName || "",
+        productDescription: chat.project.productDetails || "",
+        imageLink:
+          chat.project.generatedimageLink || "",
+      }
+    : undefined;
 
   const encoder = new TextEncoder();
   const messageId = Date.now().toString();
@@ -46,10 +66,13 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       let assistantContent = "";
-      
+
       try {
-    
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "start", id: messageId })}\n\n`));
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "start", id: messageId })}\n\n`
+          )
+        );
 
         const sandbox = await sandboxService.getSandbox(chatId);
 
@@ -57,13 +80,13 @@ export async function GET(
           projectId: chatId,
           userPrompt: latestMessage.content,
           sandbox,
+          projectContext,
           sendEvent: async (payload) => {
-            const eventPayload = {type: "partial",
-              id: messageId,
-              payload,
-            };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(eventPayload)}\n\n`));
-            
+            const eventPayload = { type: "partial", id: messageId, payload };
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(eventPayload)}\n\n`)
+            );
+
             if (payload.e === "thinking" && payload.message) {
               assistantContent += payload.message + "\n";
             } else if (payload.e === "planner_complete" && payload.plan) {
@@ -71,7 +94,7 @@ export async function GET(
             } else if (payload.e === "builder_complete") {
               assistantContent += "Build completed\n";
             }
-            
+
             try {
               await prisma.message.create({
                 data: {
@@ -98,15 +121,22 @@ export async function GET(
           });
         }
 
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", id: messageId })}\n\n`));
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "done", id: messageId })}\n\n`
+          )
+        );
         controller.close();
       } catch (error) {
         console.error("Agent execution error:", error);
         const errorPayload = {
           type: "error",
-          message: error instanceof Error ? error.message : "Agent execution failed",
+          message:
+            error instanceof Error ? error.message : "Agent execution failed",
         };
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorPayload)}\n\n`));
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify(errorPayload)}\n\n`)
+        );
         controller.close();
       }
     },
@@ -116,7 +146,7 @@ export async function GET(
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
     },
   });
 }

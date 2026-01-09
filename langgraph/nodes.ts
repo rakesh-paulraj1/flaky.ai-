@@ -9,7 +9,6 @@ type EventSender = (payload: Record<string, unknown>) => void;
 
 const model = getGeminiModel();
 
-
 async function safeSendEvent(
   sendEvent: EventSender | null,
   data: Record<string, unknown>
@@ -58,7 +57,9 @@ async function loadProjectContext(
         role: msg.role,
         content: msg.content,
         user_prompt: msg.role === "user" ? msg.content : undefined,
-        success: msg.role === "assistant" && !msg.content.toLowerCase().includes("error"),
+        success:
+          msg.role === "assistant" &&
+          !msg.content.toLowerCase().includes("error"),
         createdAt: msg.createdAt,
       }));
 
@@ -84,7 +85,8 @@ async function loadProjectContext(
     }
 
     const fileMessages = chat.messages.filter(
-      (msg) => msg.eventType === "file_created" || msg.eventType === "files_created"
+      (msg) =>
+        msg.eventType === "file_created" || msg.eventType === "files_created"
     );
     for (const msg of fileMessages) {
       const fileMatch = msg.content.match(/Created\s+([\w/.]+)/g);
@@ -93,7 +95,8 @@ async function loadProjectContext(
       }
     }
 
-    const hasContext = semantic || procedural || episodic || filesCreated.length > 0;
+    const hasContext =
+      semantic || procedural || episodic || filesCreated.length > 0;
     if (!hasContext) {
       console.log(`No meaningful context found - treating as new project`);
       return null;
@@ -133,18 +136,19 @@ export async function plannerNode(
 
       if (context) {
         let conversationHistoryText = "";
-        const conversationHistory = (context.conversation_history as Array<Record<string, unknown>>) || [];
+        const conversationHistory =
+          (context.conversation_history as Array<Record<string, unknown>>) ||
+          [];
 
         if (conversationHistory.length > 0) {
           conversationHistoryText = "\nCONVERSATION HISTORY (Last requests):\n";
-        const recentHistory = conversationHistory.slice(-5);
+          const recentHistory = conversationHistory.slice(-5);
           recentHistory.forEach((conv, i) => {
             const status = conv.success ? "[SUCCESS]" : "[FAILED]";
             const prompt = String(conv.user_prompt || "Unknown").slice(0, 100);
             conversationHistoryText += `   ${i + 1}. ${status} ${prompt}\n`;
           });
         }
-
 
         previousContext = `
 
@@ -159,7 +163,9 @@ export async function plannerNode(
         WHAT HAS BEEN DONE:
         ${context.episodic || "Not documented"}
         
-        EXISTING FILES: ${((context.files_created as string[]) || []).length} files already exist
+        EXISTING FILES: ${
+          ((context.files_created as string[]) || []).length
+        } files already exist
         ${conversationHistoryText}
         
         CRITICAL: This is an EXISTING project. Your plan should:
@@ -175,33 +181,80 @@ export async function plannerNode(
       }
     }
 
+    const productName = state.product_name || "Product";
+    const productDescription = state.product_description || "";
+    const imageLink = state.image_link || "";
+
     const planningPrompt = `
-    You are an expert React application architect. Create a simple, clear implementation plan for a SINGLE-PAGE application.
+You are an expert React developer specializing in high-converting product campaign landing pages.
 
-    USER REQUEST:
-    ${enhancedPrompt}
+=== PRODUCT CAMPAIGN DETAILS ===
+Product Name: ${productName}
+Product Description: ${productDescription}
 
-    ${previousContext}
+=== USER CUSTOMIZATION REQUEST ===
+${enhancedPrompt}
 
-    IMPORTANT: This is a SINGLE-PAGE application. All functionality goes in src/pages/Home.jsx with reusable components in src/components/.
+${previousContext}
 
-    ${previousContext ? "NOTE: This is an existing project. Focus on the NEW features/changes requested." : ""}
+=== YOUR MISSION ===
+Create a stunning, single-page CAMPAIGN LANDING PAGE for this product. The goal is to:
+1. Capture visitor attention immediately with the product image and catchy headline
+2. Communicate the product's value proposition clearly
+3. Convert visitors through a compelling CTA form
 
-    Provide a concise text explanation covering:
-    - What the application will do
-    - What components need to be created in src/components/
-    - How Home.jsx will be structured
-    - Any new dependencies needed (don't list: react, react-dom, react-router-dom, react-icons, tailwindcss)
-    - Step-by-step implementation approach
 
-    Write your response as clear, natural text (not JSON). Be specific and actionable.
-    `;
+
+=== LANDING PAGE STRUCTURE ===
+Build a single-page campaign website with these sections:
+1. HERO SECTION: Product image prominently displayed, catchy headline, sub-headline, primary CTA button
+2. FEATURES/BENEFITS: 3-4 key benefits of the product with icons or illustrations
+5. CTA SECTION: Email/phone capture form based on user specifications
+6. FOOTER: Simple footer with brand name
+
+=== TECHNICAL REQUIREMENTS ===
+- SINGLE FILE: Everything goes in Home.jsx (/home/user/react-app/pages/Home.jsx)
+- Tailwind CSS for styling - use custom colors extracted from the image
+- Responsive design (mobile-first)
+- Smooth scroll animations if applicable
+- Form with proper validation
+- NO external icon libraries - use emoji or CSS shapes
+
+${
+  previousContext
+    ? "NOTE: This is an existing project. Only modify what's needed for the new request."
+    : ""
+}
+
+Provide a concise implementation plan covering:
+- Color palette to use (based on image analysis if provided)
+- Section-by-section breakdown
+- Component structure within Home.jsx
+- Form handling approach
+- Animation/interaction details
+
+Write as clear, actionable text. Be specific about colors (use hex codes when possible).
+`;
+
+  
+    const messageContent: Array<{
+      type: string;
+      text?: string;
+      image_url?: string;
+    }> = [{ type: "text", text: planningPrompt }];
+
+    if (imageLink) {
+      messageContent.push({
+        type: "image_url",
+        image_url: imageLink,
+      });
+    }
 
     const messages = [
       new SystemMessage(
-        "You are an expert React application architect. Create detailed implementation plans."
+        "You are an expert React developer creating high-converting product campaign landing pages. When provided with a product image, analyze its colors, style, and mood to create a cohesive design theme."
       ),
-      new HumanMessage(planningPrompt),
+      new HumanMessage({ content: messageContent }),
     ];
 
     await safeSendEvent(sendEvent, {
@@ -213,22 +266,21 @@ export async function plannerNode(
 
     try {
       const response = await model.invoke(messages);
-      planText = typeof response.content === "string" 
-        ? response.content 
-        : String(response.content || "");
+      planText =
+        typeof response.content === "string"
+          ? response.content
+          : String(response.content || "");
     } catch (error) {
       console.error("Plan generation failed:", error);
-      planText = "Failed to generate implementation plan. Please try again with a clearer request.";
+      planText =
+        "Failed to generate implementation plan. Please try again with a clearer request.";
     }
 
-  
-    
-
- const formattedPlan = ` **IMPLEMENTATION PLAN**
+    const formattedPlan = ` **IMPLEMENTATION PLAN**
 
 ${planText}
 `;
-  if (projectId) {
+    if (projectId) {
       try {
         await prisma.message.create({
           data: {
@@ -254,7 +306,9 @@ ${planText}
       execution_log: [{ node: "planner", status: "completed", plan: planText }],
     };
   } catch (e) {
-    const errorMsg = `Planner node error: ${e instanceof Error ? e.message : String(e)}`;
+    const errorMsg = `Planner node error: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
     console.error(errorMsg, e);
 
     await safeSendEvent(sendEvent, {
@@ -270,7 +324,6 @@ ${planText}
   }
 }
 
-
 export async function builderNode(
   state: typeof AgentState.State,
   sendEvent: EventSender | null
@@ -280,21 +333,21 @@ export async function builderNode(
     if (!sandbox) {
       throw new Error("Sandbox not available");
     }
-    
+
     const retryCount = state.retry_count ?? 0;
     const validationIssues = state.validation_issues || [];
     const isRetry = retryCount > 0;
 
     await safeSendEvent(sendEvent, {
       e: "builder_started",
-      message: isRetry 
+      message: isRetry
         ? `\n\nRetrying build (attempt ${retryCount + 1})...`
         : "\n\nStarting to build the application...",
       retry_count: retryCount,
     });
 
     const plan = state.plan || "";
-  
+
     const baseTools = createToolsWithContext(sandbox);
 
     let validationContext = "";
@@ -308,7 +361,7 @@ YOU MUST FIX ALL THESE ISSUES in this build!
 `;
     }
 
-  const  builderPrompt = `You have been provided with an implementation plan below.
+    const builderPrompt = `You have been provided with an implementation plan below.
 Read and understand the plan carefully before starting.
 
 IMPLEMENTATION PLAN:
@@ -371,17 +424,19 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
       model: model,
       tools: baseTools,
     });
-    
+
     const filesCreated: string[] = [];
     const filesModified: string[] = [];
 
     try {
-      console.log(`Builder node: Starting agent execution with ${baseTools.length} tools`);
+      console.log(
+        `Builder node: Starting agent execution with ${baseTools.length} tools`
+      );
 
       const toolCallCount = 0;
       let hasWritten = false;
       let fileCreatedSuccessfully = false;
-      
+
       try {
         const stream = await agent.stream(
           { messages: messages },
@@ -389,51 +444,61 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
             streamMode: "updates",
           }
         );
-        
+
         for await (const chunk of stream) {
           if (chunk && chunk.tools) {
-            console.log("Tool streaming response "+ chunk)
+            console.log("Tool streaming response " + chunk);
             const toolsChunk = chunk.tools as Record<string, unknown>;
             if (toolsChunk.messages) {
-              const messages = toolsChunk.messages as Array<Record<string, unknown>>;
+              const messages = toolsChunk.messages as Array<
+                Record<string, unknown>
+              >;
               for (const msg of messages) {
                 const content = String(msg.content || "");
                 const toolName = String(msg.name || "unknown_tool");
-                
+
                 await safeSendEvent(sendEvent, {
                   e: "tool_response",
                   tool: toolName,
-                  content: `Tool ${toolName} returned: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`
+                  content: `Tool ${toolName} returned: ${content.substring(
+                    0,
+                    100
+                  )}${content.length > 100 ? "..." : ""}`,
                 });
-                
+
                 if (content.includes("Home.jsx updated successfully")) {
                   fileCreatedSuccessfully = true;
-                  console.log("Builder: File created successfully - STOPPING IMMEDIATELY");
-                  
+                  console.log(
+                    "Builder: File created successfully - STOPPING IMMEDIATELY"
+                  );
+
                   await safeSendEvent(sendEvent, {
                     e: "file_created",
                     file: "Home.jsx",
                     message: "Home.jsx created/updated successfully",
                   });
-                  
+
                   break;
                 }
               }
             }
           }
-                    if (fileCreatedSuccessfully) {
-            console.log("Builder: Breaking out of stream - file creation complete");
+          if (fileCreatedSuccessfully) {
+            console.log(
+              "Builder: Breaking out of stream - file creation complete"
+            );
             break;
           }
-          
-          
+
           if (chunk) {
             console.log(`Chunk: ${Object.keys(chunk).join(", ")}`);
           }
         }
-        
-        console.log(`Builder done: ${toolCallCount} tools, written: ${hasWritten}, success: ${fileCreatedSuccessfully}`);
-        
+
+        console.log(
+          `Builder done: ${toolCallCount} tools, written: ${hasWritten}, success: ${fileCreatedSuccessfully}`
+        );
+
         if (fileCreatedSuccessfully) {
           hasWritten = true;
         }
@@ -492,7 +557,9 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
 
       await safeSendEvent(sendEvent, {
         e: "builder_error",
-        message: `Builder agent execution error: ${e instanceof Error ? e.message : String(e)}`,
+        message: `Builder agent execution error: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
       });
 
       return {
@@ -510,7 +577,9 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
       };
     }
   } catch (e) {
-    const errorMsg = `Builder node error: ${e instanceof Error ? e.message : String(e)}`;
+    const errorMsg = `Builder node error: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
     console.error(errorMsg);
 
     await safeSendEvent(sendEvent, {
@@ -525,9 +594,6 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
     };
   }
 }
-
-
-
 
 export async function Validator(
   state: typeof AgentState.State,
@@ -546,11 +612,13 @@ export async function Validator(
 
     // Simple file read to check if Home.jsx exists and has content
     try {
-      const fileContent = await sandbox.files.read("/home/user/react-app/pages/Home.jsx");
-      
+      const fileContent = await sandbox.files.read(
+        "/home/user/react-app/pages/Home.jsx"
+      );
+
       if (!fileContent || fileContent.trim().length === 0) {
         console.log("Validator: Home.jsx is empty or missing");
-        
+
         await safeSendEvent(sendEvent, {
           e: "validator_failed",
           message: "Validation failed: Home.jsx is empty or missing",
@@ -571,18 +639,24 @@ export async function Validator(
       }
 
       // Basic validation checks
-      const hasReactImport = fileContent.includes("import") && fileContent.includes("React");
+      const hasReactImport =
+        fileContent.includes("import") && fileContent.includes("React");
       const hasExport = fileContent.includes("export default");
-      const hasBasicStructure = fileContent.includes("function") || fileContent.includes("const");
+      const hasBasicStructure =
+        fileContent.includes("function") || fileContent.includes("const");
 
       const validationPassed = hasReactImport && hasExport && hasBasicStructure;
-      
+
       const validationIssues: string[] = [];
       if (!hasReactImport) validationIssues.push("Missing React imports");
       if (!hasExport) validationIssues.push("Missing export default statement");
-      if (!hasBasicStructure) validationIssues.push("Missing component function/const declaration");
+      if (!hasBasicStructure)
+        validationIssues.push("Missing component function/const declaration");
 
-      console.log(`Validator: ${validationPassed ? "PASSED" : "FAILED"}`, validationIssues);
+      console.log(
+        `Validator: ${validationPassed ? "PASSED" : "FAILED"}`,
+        validationIssues
+      );
 
       await safeSendEvent(sendEvent, {
         e: validationPassed ? "validator_passed" : "validator_failed",
@@ -607,7 +681,7 @@ export async function Validator(
       };
     } catch (fileError) {
       console.error("Validator: Failed to read Home.jsx", fileError);
-      
+
       await safeSendEvent(sendEvent, {
         e: "validator_failed",
         message: "Validation failed: Could not read Home.jsx",
@@ -627,7 +701,9 @@ export async function Validator(
       };
     }
   } catch (e) {
-    const errorMsg = `Validator node error: ${e instanceof Error ? e.message : String(e)}`;
+    const errorMsg = `Validator node error: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
     console.error(errorMsg);
 
     await safeSendEvent(sendEvent, {
@@ -694,22 +770,24 @@ export async function executorNode(
       console.log("Executor: Starting dev server...");
       try {
         // Kill any existing dev server
-        await sandbox.commands.run("pkill -f 'vite'", {
-          background: false,
-        }).catch(() => {
-          console.log("No existing dev server to kill");
-        });
+        await sandbox.commands
+          .run("pkill -f 'vite'", {
+            background: false,
+          })
+          .catch(() => {
+            console.log("No existing dev server to kill");
+          });
 
         // Start the dev server
         await sandbox.commands.run("cd /home/user/react-app && npm run dev", {
           background: true,
         });
-        
+
         await safeSendEvent(sendEvent, {
           e: "dev_server_started",
           message: "Dev server started successfully",
         });
-        
+
         console.log("Executor: Dev server started successfully");
 
         await safeSendEvent(sendEvent, {
@@ -720,11 +798,13 @@ export async function executorNode(
         return {
           current_node: "executor",
           success: true,
-          execution_log: [{
-            node: "executor",
-            status: "completed",
-            message: "Dev server started successfully",
-          }],
+          execution_log: [
+            {
+              node: "executor",
+              status: "completed",
+              message: "Dev server started successfully",
+            },
+          ],
         };
       } catch (devError) {
         console.error("Executor: Failed to start dev server:", devError);
@@ -736,12 +816,16 @@ export async function executorNode(
         return {
           current_node: "executor",
           success: false,
-          error_message: `Failed to start dev server: ${devError instanceof Error ? devError.message : String(devError)}`,
-          execution_log: [{
-            node: "executor",
-            status: "error",
-            error: String(devError),
-          }],
+          error_message: `Failed to start dev server: ${
+            devError instanceof Error ? devError.message : String(devError)
+          }`,
+          execution_log: [
+            {
+              node: "executor",
+              status: "error",
+              error: String(devError),
+            },
+          ],
         };
       }
     } else {
@@ -753,15 +837,19 @@ export async function executorNode(
       return {
         current_node: "executor",
         success: true,
-        execution_log: [{
-          node: "executor",
-          status: "skipped",
-          message: "No files were created",
-        }],
+        execution_log: [
+          {
+            node: "executor",
+            status: "skipped",
+            message: "No files were created",
+          },
+        ],
       };
     }
   } catch (e) {
-    const errorMsg = `Executor node error: ${e instanceof Error ? e.message : String(e)}`;
+    const errorMsg = `Executor node error: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
     console.error(errorMsg);
 
     await safeSendEvent(sendEvent, {

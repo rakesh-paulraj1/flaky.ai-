@@ -37,6 +37,32 @@ export async function uploadFileToBlob(
     throw new Error("Failed to upload file to storage");
   }
 }
+export async function uploadImageToBlob(
+  file: Buffer,
+  fileName: string,
+  contentType: string
+): Promise<string> {
+  try {
+    const containerClient = blobServiceClient.getContainerClient("generatedvideos");
+
+    const timestamp = Date.now();
+    const uniqueFileName = `${timestamp}-${fileName}`;
+
+    const blockBlobClient = containerClient.getBlockBlobClient(uniqueFileName);
+
+    await blockBlobClient.uploadData(file, {
+      blobHTTPHeaders: {
+        blobContentType: contentType,
+      },
+    });
+    
+    console.log("File uploaded successfully:", blockBlobClient.url);
+    return blockBlobClient.url;
+  } catch (error) {
+    console.error("Error uploading file to blob storage:", error);
+    throw new Error("Failed to upload file to storage");
+  }
+}
 
 export async function uploadVideoToBlob(
   videoBuffer: Buffer,
@@ -54,11 +80,9 @@ export async function uploadVideoToBlob(
     await blockBlobClient.uploadData(videoBuffer, {
       blobHTTPHeaders: {
         blobContentType: 'video/mp4',
-        blobCacheControl: 'public, max-age=31536000', // Cache for 1 year
       },
     });
     
-    console.log("✓ Video uploaded successfully:", blockBlobClient.url);
     return blockBlobClient.url;
   } catch (error) {
     console.error("Error uploading video to blob storage:", error);
