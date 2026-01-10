@@ -3,14 +3,14 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ChatNavbar } from "@/components/chat";
-import { Loader2, Sparkles, X } from "lucide-react";
+import { Loader2,  X } from "lucide-react";
 import { getProjectwithid } from "@/app/actions/projects";
 import { HoverBorderGradient } from "@/components/ui/hoverbutton";
+import { getChatMessages } from "@/app/actions/chats";
 interface ProjectData {
   id: string;
   productName: string;
   productDetails: string;
-  ctalink: string;
   imageLink: string;
   imageGenerationEntities: string;
   generatedimageLink: string | null;
@@ -40,14 +40,23 @@ export default function ProjectChatPage() {
       return;
     }
 
-    const fetchProject = async () => {
+   
+    
+    const fetchProjectAndMessages = async () => {
       const projectData = await getProjectwithid(projectId);
       setProject(projectData);
       setIsLoading(false);
+
+      if (projectData?.chatId) {
+        const messages = await getChatMessages(projectData.chatId);
+        if (messages.length > 0) {
+          router.push(`/project/${projectId}/chat/${projectData.chatId}`);
+        }
+      }
     };
 
-    fetchProject();
-  }, [projectId]);
+    fetchProjectAndMessages();
+  }, [projectId,router]);
 
   const handleGenerateWebsite = async () => {
     if (!catchyPhrase.trim() || !project?.chatId) return;
@@ -59,7 +68,7 @@ export default function ProjectChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `Catchy Phrase: ${catchyPhrase}\nCTA Input Type: ${ctaInputType === "email" ? "Email Address" : "Phone Number"}\nAPI Specification for CTA Form: ${apiSpecification || "None provided"}`,
+          prompt: `Catchy Phrase: ${catchyPhrase}\nCTA Input Type: ${ctaInputType === "email" ? "Email Address" : "Phone Number"}\nAPI Specification for CTA Form: ${apiSpecification || "None provided"}`,
         }),
       });
 
@@ -151,8 +160,6 @@ export default function ProjectChatPage() {
           </div>
         )}
       </div>
-
-     
       {showDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div

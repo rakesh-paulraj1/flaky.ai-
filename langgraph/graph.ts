@@ -1,4 +1,4 @@
-import { StateGraph, START } from "@langchain/langgraph";
+import { StateGraph, START, END } from "@langchain/langgraph";
 import { Sandbox } from "@e2b/code-interpreter";
 import { AgentState } from "./state";
 import {
@@ -58,7 +58,7 @@ export function createAgentGraph(config: AgentConfig) {
       builder: "builder",
       executor: "executor",
     })
-    .addEdge("executor", "__end__");
+    .addEdge("executor", END);
 
   const app = workflow.compile();
 

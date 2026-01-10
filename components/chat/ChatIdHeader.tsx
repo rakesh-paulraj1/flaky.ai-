@@ -1,28 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, Eye, EyeOff, BarChart3, MessageSquare } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 interface ChatIdHeaderProps {
   showPreview: boolean;
   onTogglePreview: () => void;
-  onNewChat: () => void;
+  onToggleView: () => void;
   onBack: () => void;
+  viewMode: "chat" | "analytics";
+  isDeployed: boolean;
 }
 
 export function ChatIdHeader({
-
   showPreview,
   onTogglePreview,
-  onNewChat,
+  onToggleView,
   onBack,
+  viewMode,
+  isDeployed,
 }: ChatIdHeaderProps) {
 
-
-  const userData= useSession();
-  
+  const userData = useSession();
 
   return (
-    <div className="border-b border-white/5 backdrop-blur-md px-4 py-4">
+    <div className="flex-1 w-full border-b border-white/5 backdrop-blur-md px-4 py-4">
       <div className="flex items-center justify-between">
         <Button
           variant="ghost"
@@ -50,12 +51,26 @@ export function ChatIdHeader({
           >
             {showPreview ? <Eye size={20} /> : <EyeOff size={20} />}
           </Button>
-          <Button
-            className="bg-white text-black hover:bg-slate-100 text-sm font-sans"
-            onClick={onNewChat}
-          >
-            New Chat
-          </Button>
+          {isDeployed ? (
+            <Button
+              className="bg-white text-black hover:bg-slate-100 text-sm font-sans flex items-center gap-2"
+              onClick={onToggleView}
+            >
+              {viewMode === "chat" ? (
+                <>
+                  <BarChart3 size={16} />
+                  Analytics
+                </>
+              ) : (
+                <>
+                  <MessageSquare size={16} />
+                  Chat
+                </>
+              )}
+            </Button>
+          ) : (
+            <></>
+          )}
         </div>
       </div>
     </div>

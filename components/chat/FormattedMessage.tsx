@@ -12,33 +12,73 @@ export function FormattedMessage({
   content,
   formatted,
 }: FormattedMessageProps) {
-  // Use formatted content if available, otherwise use raw content
   const displayContent = formatted || content;
 
-  // Check if content is likely JSON (unformatted)
+  // Check for thinking blocks with various formats
+  const thinkingPatterns = [
+    /<think>([\s\S]*?)<\/think>/gi,
+    /<thinking>([\s\S]*?)<\/thinking>/gi,
+    /\[thinking\]([\s\S]*?)\[\/thinking\]/gi,
+  ];
+
+  const thinkingContent: string[] = [];
+  let mainContent = displayContent;
+
+  for (const pattern of thinkingPatterns) {
+    const matches = displayContent.matchAll(pattern);
+    for (const match of matches) {
+      if (match[1]) {
+        thinkingContent.push(match[1].trim());
+      }
+      mainContent = mainContent.replace(match[0], '');
+    }
+  }
+
+  mainContent = mainContent.trim();
+
+  // If there's thinking content, render it in a collapsible section
+  const ThinkingSection = thinkingContent.length > 0 ? (
+    <details className="my-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+      <summary className="cursor-pointer px-4 py-2 font-medium text-purple-300 hover:text-purple-200 flex items-center gap-2">
+        <span className="text-xs">🧠</span>
+        View Thinking ({thinkingContent.length} block{thinkingContent.length > 1 ? 's' : ''})
+      </summary>
+      <div className="px-4 pb-4 space-y-3">
+        {thinkingContent.map((thinking, i) => (
+          <div key={i} className="text-sm text-purple-200/70 leading-relaxed whitespace-pre-wrap">
+            {thinking}
+          </div>
+        ))}
+      </div>
+    </details>
+  ) : null;
+
   const isJson =
     !formatted &&
-    (content.trim().startsWith("{") || content.trim().startsWith("["));
+    (mainContent.trim().startsWith("{") || mainContent.trim().startsWith("["));
 
   if (isJson) {
     let parsed: unknown;
     let parseError = false;
     try {
-      parsed = JSON.parse(content) as unknown;
+      parsed = JSON.parse(mainContent) as unknown;
     } catch {
       parseError = true;
     }
 
     if (!parseError && parsed) {
       return (
-        <details className="my-2 bg-white/5 rounded-lg border border-white/10">
-          <summary className="cursor-pointer px-4 py-2 font-medium text-white/70 hover:text-white">
-            View Raw Data
-          </summary>
-          <pre className="px-4 pb-4 text-xs text-white/60 overflow-x-auto">
-            {JSON.stringify(parsed, null, 2)}
-          </pre>
-        </details>
+        <>
+          {ThinkingSection}
+          <details className="my-2 bg-white/5 rounded-lg border border-white/10">
+            <summary className="cursor-pointer px-4 py-2 font-medium text-white/70 hover:text-white">
+              View Raw Data
+            </summary>
+            <pre className="px-4 pb-4 text-xs text-white/60 overflow-x-auto">
+              {JSON.stringify(parsed, null, 2)}
+            </pre>
+          </details>
+        </>
       );
     }
   }
@@ -102,7 +142,7 @@ export function FormattedMessage({
             </h4>
           ),
           p: ({ children }) => (
-            <p className="text-white/70 leading-relaxed my-2">{children}</p>
+            <div className="text-white/70 leading-relaxed my-2">{children}</div>
           ),
           ul: ({ children }) => (
             <ul className="list-disc list-inside space-y-1 text-white/70 my-2">
@@ -157,8 +197,9 @@ export function FormattedMessage({
           ),
         }}
       >
-        {displayContent}
+        {mainContent}
       </ReactMarkdown>
+      {ThinkingSection}
     </div>
   );
 }

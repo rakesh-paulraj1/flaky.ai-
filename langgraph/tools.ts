@@ -2,12 +2,9 @@ import { tool, ToolRuntime } from "@langchain/core/tools";
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import * as path from "path";
-
-
-
+import prisma from "@/lib/prisma";
 
 const REACT_APP_PATH = "/home/user/react-app/src/pages";
-
 
 function fixEscapeSequences(content: string): string {
   try {
@@ -20,23 +17,29 @@ function fixEscapeSequences(content: string): string {
   }
 }
 
-
-export function createToolsWithContext(
-  sandbox: Sandbox,
-) {
-
+export function createToolsWithContext(sandbox: Sandbox, projectId?: string) {
   const createFileTool = tool(
-    async ({ content },config:ToolRuntime) => {
+    async ({ content }, config: ToolRuntime) => {
       const writer = config.writer;
       try {
         const fixedContent = fixEscapeSequences(content);
         const homePath = path.join(REACT_APP_PATH, "Home.jsx");
-        if(writer){
-          writer(`Updating the Home.jsx file`)
+        if (writer) {
+          writer(`Updating the Home.jsx file`);
         }
 
         await sandbox.files.write(homePath, fixedContent);
 
+        if (projectId) {
+          try {
+            await prisma.project.update({
+              where: { chatId: projectId },
+              data: { generatedCode: fixedContent },
+            });
+          } catch (dbError) {
+            console.error("Failed to save generated code to DB:", dbError);
+          }
+        }
 
         return `Home.jsx updated successfully with new content.`;
       } catch (e) {
@@ -61,19 +64,21 @@ Example:
   
 Note: Put ALL your application logic, state, and UI in Home.jsx since this is a single-page app.`,
       schema: z.object({
-        content: z.string().describe("The complete content to write to Home.jsx"),
+        content: z
+          .string()
+          .describe("The complete content to write to Home.jsx"),
       }),
     }
   );
 
   const readFileTool = tool(
-    async (config:ToolRuntime) => {
+    async (config: ToolRuntime) => {
       try {
         const homePath = path.join(REACT_APP_PATH, "Home.jsx");
-         const writer=config.writer;
-if(writer){
-  writer(`Reading the Home.jsx file`)
-}
+        const writer = config.writer;
+        if (writer) {
+          writer(`Reading the Home.jsx file`);
+        }
         const content = await sandbox.files.read(homePath);
 
         return `Content from Home.jsx:\n${content}`;
@@ -96,10 +101,7 @@ Use this to:
       schema: z.object({}),
     }
   );
-  return [
-    createFileTool,
-    readFileTool
-  ];
+  return [createFileTool, readFileTool];
 }
 
 export type AgentTools = ReturnType<typeof createToolsWithContext>;
@@ -111,5 +113,3 @@ export const createCreateFileTool = (sandbox: Sandbox) => {
 export const createReadFileTool = (sandbox: Sandbox) => {
   return createToolsWithContext(sandbox)[1];
 };
-
-

@@ -295,9 +295,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Technology Stack Section */}
-     
-
         {/* Bottom Features Grid */}
         <section className="py-16 px-6 border-t border-neutral-800">
           <div className="max-w-6xl mx-auto">
@@ -336,7 +333,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* CTA Section */}
+      
         <section className="py-24 px-6 border-t border-neutral-800">
           <div className="max-w-2xl mx-auto text-center">
             <div className="w-16 h-16 mx-auto mb-8 rounded-full bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-neutral-800 flex items-center justify-center">
@@ -354,7 +351,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Footer */}
+        
         <footer className="border-t border-neutral-800 py-12 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="flex flex-col md:flex-row items-center justify-between mb-8 pb-8 border-b border-neutral-800">
@@ -379,14 +376,6 @@ export default function Home() {
                 </a>
                 <a href="#privacy" className="hover:text-white transition">
                   Privacy Policy
-                </a>
-                <a
-                  href="https://github.com/abhayymishraa/lovable-clone"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white transition"
-                >
-                  GitHub
                 </a>
               </nav>
             </div>

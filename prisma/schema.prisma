@@ -64,13 +64,30 @@ model Project {
   productName             String
   userId                  Int
   imageLink               String
-  ctalink                 String
   productDetails          String       @db.Text
   imageGenerationEntities String       @db.Text
   generatedimageLink      String?
+  generatedCode           String?      @db.Text
   state                   ProjectState @default(INITIAL)
+  deployedUrl             String?
+  netlifySiteId           String?
   user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   chat                    Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  pageViews               PageView[]
+}
+
+model PageView {
+  id          String   @id @default(uuid())
+  projectId   String
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+  referrer    String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 } 

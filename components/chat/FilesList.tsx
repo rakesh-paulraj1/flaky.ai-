@@ -86,7 +86,6 @@ function FileTreeNode({
 
   const handleFileClick = () => {
     if (!node.isDirectory && appUrl) {
-      // Open file in new tab by constructing URL to the file
       const fileUrl = `${appUrl}/${node.path}`;
       window.open(fileUrl, "_blank");
     }

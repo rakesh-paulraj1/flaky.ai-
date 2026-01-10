@@ -21,6 +21,25 @@ async function safeSendEvent(
   }
 }
 
+async function imageUrlToBase64(imageUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error("Failed to fetch image:", response.status);
+      return null;
+    }
+
+    const contentType = response.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error("Error converting image to base64:", error);
+    return null;
+  }
+}
+
 async function loadProjectContext(
   projectId: string
 ): Promise<Record<string, unknown> | null> {
@@ -175,7 +194,6 @@ export async function plannerNode(
         - NOT recreate existing components/pages
         - Integrate with the existing structure
         `;
-        console.log("Previous context prepared successfully");
       } else {
         console.log("No previous context found - empty dict returned");
       }
@@ -236,23 +254,28 @@ Provide a concise implementation plan covering:
 Write as clear, actionable text. Be specific about colors (use hex codes when possible).
 `;
 
-  
-    const messageContent: Array<{
-      type: string;
-      text?: string;
-      image_url?: string;
-    }> = [{ type: "text", text: planningPrompt }];
+    const messageContent: Array<
+      { type: "text"; text: string } | { type: "image_url"; image_url: string }
+    > = [{ type: "text", text: planningPrompt }];
 
     if (imageLink) {
-      messageContent.push({
-        type: "image_url",
-        image_url: imageLink,
-      });
+      const base64Image = await imageUrlToBase64(imageLink);
+      if (base64Image) {
+        messageContent.push({
+          type: "image_url",
+          image_url: base64Image,
+        });
+        console.log("Planner: Image converted successfully");
+      } else {
+        console.log(
+          "Planner: Failed to convert image, proceeding without image"
+        );
+      }
     }
 
     const messages = [
       new SystemMessage(
-        "You are an expert React developer creating high-converting product campaign landing pages. When provided with a product image, analyze its colors, style, and mood to create a cohesive design theme."
+        "You are an expert React developer creating high-converting product campaign landing pages. When provided with a product image, analyze its colors, style, and mood to create a cohesive design theme  just need the plan to implement and not the code  also it is for performance marketers so they dont know much about app scepfication just need how are you going to design thats it."
       ),
       new HumanMessage({ content: messageContent }),
     ];
@@ -264,22 +287,17 @@ Write as clear, actionable text. Be specific about colors (use hex codes when po
 
     let planText = "";
 
-    try {
-      const response = await model.invoke(messages);
-      planText =
-        typeof response.content === "string"
-          ? response.content
-          : String(response.content || "");
-    } catch (error) {
-      console.error("Plan generation failed:", error);
-      planText =
-        "Failed to generate implementation plan. Please try again with a clearer request.";
-    }
+    const response = await model.invoke(messages);
+    planText =
+      typeof response.content === "string"
+        ? response.content
+        : String(response.content || "");
 
     const formattedPlan = ` **IMPLEMENTATION PLAN**
 
 ${planText}
 `;
+
     if (projectId) {
       try {
         await prisma.message.create({
@@ -297,7 +315,7 @@ ${planText}
 
     await safeSendEvent(sendEvent, {
       e: "planner_complete",
-      message: `Planning completed successfully + ${formattedPlan}`,
+      message: ` ${formattedPlan}`,
     });
 
     return {
@@ -347,12 +365,11 @@ export async function builderNode(
     });
 
     const plan = state.plan || "";
-
-    const baseTools = createToolsWithContext(sandbox);
+    const baseTools = createToolsWithContext(sandbox, state.project_id);
 
     let validationContext = "";
     if (isRetry && validationIssues.length > 0) {
-      validationContext = `\n\n⚠️ CRITICAL: PREVIOUS BUILD HAD VALIDATION ISSUES ⚠️
+      validationContext = `\n\nCRITICAL: PREVIOUS BUILD HAD VALIDATION ISSUES
 The previous Home.jsx had these problems that MUST be fixed:
 
 ${validationIssues.map((issue, i) => `${i + 1}. ${issue}`).join("\n")}
@@ -369,6 +386,9 @@ ${plan}
 
 ${validationContext}
 
+DONT FORGET TO USE THE BELOW IMAGE LINK URL IN THE LANDING PAGE 
+${state.image_link}
+
 YOUR MISSION:
 Build the COMPLETE single-page application in Home.jsx according to the plan above.
 
@@ -378,7 +398,29 @@ CRITICAL: SINGLE FILE APPROACH
 - DO NOT try to create separate component files - they won't work
 - Put helper functions inside the Home component if needed
 - Use inline components or component functions within Home.jsx
-- Do not use any 3rd paackages no usage of icons is allowed from 3rd party packages
+- Do not use any 3rd packages no usage of icons is allowed from 3rd party packages
+
+ANALYTICS TRACKING (REQUIRED):
+Add this useEffect at the start of your Home component to track page visits:
+
+React.useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  fetch('${
+    process.env.NEXT_PUBLIC_APP_URL || "https://flaky.ai"
+  }/api/analytics/${state.project_id}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      utmSource: params.get('utm_source'),
+      utmMedium: params.get('utm_medium'),
+      utmCampaign: params.get('utm_campaign'),
+      utmContent: params.get('utm_content'),
+      utmTerm: params.get('utm_term'),
+      referrer: document.referrer
+    })
+  }).catch(() => {});
+}, []);
+
 AVAILABLE TOOLS:
 1. read_file() - Read the current content of Home.jsx
 2. create_file(content) - Write the complete Home.jsx content
@@ -389,7 +431,11 @@ STEP-BY-STEP PROCESS (DO EXACTLY THESE STEPS, THEN STOP):
 3. Call create_file(content) ONCE with the COMPLETE new Home.jsx
 4. IMMEDIATELY STOP - Do NOT call any more tools!
 
- CRITICAL STOPPING RULE
+API FETCH LOGIC 
+only use the api end point provided by the user and if the user has partial api data or url data please dont add the cta 
+${state.user_prompt}
+
+CRITICAL STOPPING RULE:
 After create_file() returns "Home.jsx updated successfully" → YOU MUST STOP IMMEDIATELY
 Do NOT:
 - Verify by reading the file again
@@ -429,13 +475,9 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
     const filesModified: string[] = [];
 
     try {
-      console.log(
-        `Builder node: Starting agent execution with ${baseTools.length} tools`
-      );
-
-      const toolCallCount = 0;
-      let hasWritten = false;
+      let toolCallCount = 0;
       let fileCreatedSuccessfully = false;
+      const MAX_TOOL_CALLS = 3;
 
       try {
         const stream = await agent.stream(
@@ -445,32 +487,30 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
           }
         );
 
-        for await (const chunk of stream) {
+        streamLoop: for await (const chunk of stream) {
+          if (fileCreatedSuccessfully || toolCallCount >= MAX_TOOL_CALLS) {
+            break streamLoop;
+          }
           if (chunk && chunk.tools) {
-            console.log("Tool streaming response " + chunk);
             const toolsChunk = chunk.tools as Record<string, unknown>;
+
             if (toolsChunk.messages) {
               const messages = toolsChunk.messages as Array<
                 Record<string, unknown>
               >;
+
               for (const msg of messages) {
                 const content = String(msg.content || "");
-                const toolName = String(msg.name || "unknown_tool");
 
-                await safeSendEvent(sendEvent, {
-                  e: "tool_response",
-                  tool: toolName,
-                  content: `Tool ${toolName} returned: ${content.substring(
-                    0,
-                    100
-                  )}${content.length > 100 ? "..." : ""}`,
-                });
+                toolCallCount++;
 
-                if (content.includes("Home.jsx updated successfully")) {
+                if (
+                  content.includes("Home.jsx updated successfully") ||
+                  content.includes("File created successfully")
+                ) {
                   fileCreatedSuccessfully = true;
-                  console.log(
-                    "Builder: File created successfully - STOPPING IMMEDIATELY"
-                  );
+                  filesCreated.push("Home.jsx");
+                  filesModified.push("Home.jsx");
 
                   await safeSendEvent(sendEvent, {
                     e: "file_created",
@@ -478,70 +518,65 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
                     message: "Home.jsx created/updated successfully",
                   });
 
-                  break;
+                  break streamLoop;
+                }
+
+                if (toolCallCount >= MAX_TOOL_CALLS) {
+                  break streamLoop;
                 }
               }
             }
           }
-          if (fileCreatedSuccessfully) {
-            console.log(
-              "Builder: Breaking out of stream - file creation complete"
-            );
-            break;
-          }
-
-          if (chunk) {
-            console.log(`Chunk: ${Object.keys(chunk).join(", ")}`);
-          }
         }
 
-        console.log(
-          `Builder done: ${toolCallCount} tools, written: ${hasWritten}, success: ${fileCreatedSuccessfully}`
-        );
-
         if (fileCreatedSuccessfully) {
-          hasWritten = true;
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
       } catch (streamError) {
         console.error("Stream error:", streamError);
+        throw streamError;
       }
 
       await safeSendEvent(sendEvent, {
         e: "builder_complete",
         files_created: filesCreated,
         files_modified: filesModified,
-        message: "Building completed",
+        message: fileCreatedSuccessfully
+          ? "Building completed successfully"
+          : "Building completed with warnings",
       });
 
       return {
         files_created: filesCreated,
         files_modified: filesModified,
         current_node: "builder",
-        success: true,
+        success: fileCreatedSuccessfully,
         retry_count: retryCount + 1,
         execution_log: [
           {
             node: "builder",
-            status: "completed",
+            status: fileCreatedSuccessfully ? "completed" : "partial",
             files_created: filesCreated,
             files_modified: filesModified,
             retry_count: retryCount + 1,
+            tool_calls: toolCallCount,
           },
         ],
       };
     } catch (e) {
       if (e instanceof Error && e.message.includes("timeout")) {
-        console.log("Builder agent timed out after 10 minutes");
+        console.log("Builder agent timed out");
 
         await safeSendEvent(sendEvent, {
           e: "builder_error",
-          message: "Builder agent timed out after 10 minutes",
+          message: "Builder agent timed out",
         });
 
         return {
           files_created: [],
           files_modified: [],
           current_node: "builder",
+          success: false,
           execution_log: [
             {
               node: "builder",
@@ -566,12 +601,14 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
         files_created: [],
         files_modified: [],
         current_node: "builder",
+        success: false,
         execution_log: [
           {
             node: "builder",
             status: "error",
             files_created: [],
             files_modified: [],
+            error: e instanceof Error ? e.message : String(e),
           },
         ],
       };
@@ -589,6 +626,7 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
 
     return {
       current_node: "builder",
+      success: false,
       error_message: errorMsg,
       execution_log: [{ node: "builder", status: "error", error: errorMsg }],
     };
@@ -610,15 +648,12 @@ export async function Validator(
       message: "Validating Home.jsx...",
     });
 
-    // Simple file read to check if Home.jsx exists and has content
     try {
       const fileContent = await sandbox.files.read(
-        "/home/user/react-app/pages/Home.jsx"
+        "/home/user/react-app/src/pages/Home.jsx"
       );
 
       if (!fileContent || fileContent.trim().length === 0) {
-        console.log("Validator: Home.jsx is empty or missing");
-
         await safeSendEvent(sendEvent, {
           e: "validator_failed",
           message: "Validation failed: Home.jsx is empty or missing",
@@ -638,20 +673,84 @@ export async function Validator(
         };
       }
 
-      // Basic validation checks
       const hasReactImport =
         fileContent.includes("import") && fileContent.includes("React");
       const hasExport = fileContent.includes("export default");
       const hasBasicStructure =
         fileContent.includes("function") || fileContent.includes("const");
 
-      const validationPassed = hasReactImport && hasExport && hasBasicStructure;
-
       const validationIssues: string[] = [];
+
       if (!hasReactImport) validationIssues.push("Missing React imports");
       if (!hasExport) validationIssues.push("Missing export default statement");
       if (!hasBasicStructure)
         validationIssues.push("Missing component function/const declaration");
+
+      const imageLink = state.image_link || "";
+      if (imageLink) {
+        const hasImageLink = fileContent.includes(imageLink);
+        const hasImgTag =
+          fileContent.includes("<img") || fileContent.includes("src=");
+
+        if (!hasImageLink && !hasImgTag) {
+          validationIssues.push(
+            "Product image not found in the generated code - add the image URL to display the product"
+          );
+        } else if (!hasImageLink && hasImgTag) {
+          console.log(
+            "Validator: Image tag found but specific product image URL not detected"
+          );
+        }
+      }
+
+      const userPrompt = state.user_prompt || "";
+      const hasApiSpecification =
+        userPrompt.toLowerCase().includes("api specification") &&
+        !userPrompt.includes("None provided");
+
+      if (hasApiSpecification) {
+        const hasForm =
+          fileContent.includes("<form") || fileContent.includes("onSubmit");
+        const hasInput =
+          fileContent.includes("<input") ||
+          fileContent.includes('type="email"') ||
+          fileContent.includes('type="tel"') ||
+          fileContent.includes('type="phone"');
+        const hasFetch =
+          fileContent.includes("fetch(") ||
+          fileContent.includes("fetch (") ||
+          fileContent.includes("axios") ||
+          fileContent.includes("POST");
+
+        if (!hasForm) {
+          validationIssues.push(
+            "CTA form not found - user requested a form with API integration"
+          );
+        }
+        if (!hasInput) {
+          validationIssues.push(
+            "Form input field not found - add email/phone input for CTA"
+          );
+        }
+        if (!hasFetch) {
+          validationIssues.push(
+            "API fetch/submit logic not found - add fetch call to submit form data"
+          );
+        }
+      }
+
+      const hasHeroSection =
+        fileContent.toLowerCase().includes("hero") ||
+        (fileContent.includes("min-h-screen") && fileContent.includes("flex"));
+      if (!hasHeroSection) {
+        validationIssues.push("Hero section not clearly defined");
+      }
+
+      const basicStructurePassed =
+        hasReactImport && hasExport && hasBasicStructure;
+      const hasContentIssues = validationIssues.length > 3;
+
+      const validationPassed = basicStructurePassed && !hasContentIssues;
 
       console.log(
         `Validator: ${validationPassed ? "PASSED" : "FAILED"}`,
@@ -663,7 +762,11 @@ export async function Validator(
         validation_passed: validationPassed,
         issues: validationIssues,
         message: validationPassed
-          ? "Validation passed successfully"
+          ? `Validation passed${
+              validationIssues.length > 0
+                ? ` with ${validationIssues.length} warning(s)`
+                : " successfully"
+            }`
           : `Validation failed: ${validationIssues.join(", ")}`,
       });
 
@@ -769,7 +872,6 @@ export async function executorNode(
     if (hasFiles) {
       console.log("Executor: Starting dev server...");
       try {
-        // Kill any existing dev server
         await sandbox.commands
           .run("pkill -f 'vite'", {
             background: false,
@@ -778,7 +880,6 @@ export async function executorNode(
             console.log("No existing dev server to kill");
           });
 
-        // Start the dev server
         await sandbox.commands.run("cd /home/user/react-app && npm run dev", {
           background: true,
         });

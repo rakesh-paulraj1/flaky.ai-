@@ -10,6 +10,10 @@ interface PreviewPanelProps {
   previewWidth: number;
   projectId?: string;
   files?: string[];
+  onDeploy?: () => void;
+  isDeploying?: boolean;
+  deployedUrl?: string | null;
+  isDeployedProject?: boolean;
 }
 
 type TabType = "preview" | "code";
@@ -20,6 +24,10 @@ export function PreviewPanel({
   previewWidth,
   projectId,
   files,
+  onDeploy,
+  isDeploying,
+  deployedUrl,
+  isDeployedProject,
 }: PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("preview");
 
@@ -42,19 +50,21 @@ export function PreviewPanel({
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
-            Preview
+            {isDeployedProject ? "Live Site" : "Preview"}
           </button>
-          <button
-            onClick={() => setActiveTab("code")}
-            className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors ${
-              activeTab === "code"
-                ? "text-white border-b-2 border-white bg-white/5"
-                : "text-white/50 hover:text-white/80 hover:bg-white/5"
-            }`}
-          >
-            <FileCode className="w-3.5 h-3.5" />
-            Code
-          </button>
+          {!isDeployedProject && (
+            <button
+              onClick={() => setActiveTab("code")}
+              className={`flex items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors ${
+                activeTab === "code"
+                  ? "text-white border-b-2 border-white bg-white/5"
+                  : "text-white/50 hover:text-white/80 hover:bg-white/5"
+              }`}
+            >
+              <FileCode className="w-3.5 h-3.5" />
+              Code
+            </button>
+          )}
         </div>
 
      
@@ -106,7 +116,13 @@ export function PreviewPanel({
         ) : (
           <div className="h-full overflow-hidden">
             {projectId ? (
-              <FileViewer projectId={projectId} files={files} />
+              <FileViewer 
+                projectId={projectId} 
+                files={files}
+                onDeploy={onDeploy}
+                isDeploying={isDeploying}
+                deployedUrl={deployedUrl}
+              />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center text-white/40 p-10 text-center">
                 <FileCode className="w-12 h-12 mb-4 opacity-20" />

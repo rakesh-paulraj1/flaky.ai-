@@ -10,11 +10,15 @@ import {
   Download,
   Loader2,
   FolderArchive,
+  Rocket,
 } from "lucide-react";  
 
 interface FileViewerProps {
   projectId: string;
   files?: string[];
+  onDeploy?: () => void;
+  isDeploying?: boolean;
+  deployedUrl?: string | null;
 }
 
 interface FileNode {
@@ -168,7 +172,13 @@ function FileTreeNode({
   );
 }
 
-export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) {
+export function FileViewer({ 
+  projectId, 
+  files: initialFiles,
+  onDeploy,
+  isDeploying,
+  deployedUrl,
+}: FileViewerProps) {
   const [files, setFiles] = useState<string[]>(initialFiles || []);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string>("");
@@ -242,8 +252,6 @@ export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) 
   useEffect(() => {
     if (initialFiles) {
       setFiles(initialFiles);
-    } else {
-      // fetchFiles();
     }
   }, [initialFiles]);
 
@@ -283,8 +291,8 @@ export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) 
     <div className="h-full flex">
       <div className="w-64 border-r border-white/10 overflow-y-auto bg-black/30">
         <div className="sticky top-0 bg-black/50 backdrop-blur-sm border-b border-white/10 p-3 z-10">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-white/90 font-semibold text-sm">Files</h3>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-white/90 font-semibold text-sm flex-1">Files</h3>
             <button
               onClick={handleDownloadAll}
               disabled={isDownloading}
@@ -298,6 +306,25 @@ export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) 
               )}
               ZIP
             </button>
+            {onDeploy && (
+              <button
+                onClick={onDeploy}
+                disabled={isDeploying || !!deployedUrl}
+                className={`flex items-center gap-1 px-2 py-1 text-xs rounded transition-colors disabled:opacity-50 ${
+                  deployedUrl 
+                    ? "bg-green-500/20 text-green-400 cursor-default" 
+                    : "bg-purple-500/20 hover:bg-purple-500/30 text-purple-400"
+                }`}
+                title={deployedUrl ? "Already deployed" : "Deploy to Netlify"}
+              >
+                {isDeploying ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Rocket className="w-3 h-3" />
+                )}
+                {deployedUrl ? "Deployed" : "Deploy"}
+              </button>
+            )}
           </div>
           <p className="text-white/50 text-xs">
             {files.length} file{files.length !== 1 ? "s" : ""}
@@ -335,7 +362,6 @@ export function FileViewer({ projectId, files: initialFiles }: FileViewerProps) 
               </button>
             </div>
 
-            {/* Monaco Editor */}
             <div className="flex-1 relative">
               {isLoadingFile ? (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50">

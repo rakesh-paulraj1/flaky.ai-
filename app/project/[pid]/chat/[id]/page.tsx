@@ -1,15 +1,14 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, BarChart3 } from "lucide-react";
 import {
   ChatIdHeader,
   MessageBubble,
-  ToolCallsDropdown,
   PreviewPanel,
   ChatInput,
 } from "@/components/chat";
-import { getAllToolCalls } from "@/lib/chat-utils";
+
 import type { Message } from "@/lib/chat-types";
 import { getChatMessages } from "@/app/actions/chats";
 
@@ -28,47 +27,52 @@ export default function ChatIdPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showPreview, setShowPreview] = useState(true);
   const [isCheckingUrl, setIsCheckingUrl] = useState(false);
-  const [showAllToolsDropdown, setShowAllToolsDropdown] = useState(false);
+
   const [files, setFiles] = useState<string[]>([]);
+  const [projectState, setProjectState] = useState<string>("INITIAL");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"chat" | "analytics">("chat");
+  const [analytics, setAnalytics] = useState<{ totalViews: number; viewsBySource: Array<{ source: string; count: number }>; } | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [deployedUrl, setDeployedUrl] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const urlCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const streamRef = useRef<EventSource | null>(null);
+  const hasStreamedRef = useRef<boolean>(false);
 
   const openStream = useCallback(() => {
-    if (streamRef.current) return;
-    const es = new EventSource(`/api/chat/${chatId}/stream`);
+    if (streamRef.current && streamRef.current.readyState !== EventSource.CLOSED) {
+      console.log("Stream already active, skipping duplicate call");
+      return;
+    }
+ 
+    if (streamRef.current) {
+      streamRef.current.close();
+      streamRef.current = null;
+    }
+    
+    const streamUrl = `/api/chat/${chatId}/stream`;
+    console.log("Opening EventSource stream:", streamUrl);
+    
+    const es = new EventSource(streamUrl);
     streamRef.current = es;
 
+    es.onopen = () => {
+      console.log("EventSource connection opened successfully");
+    };
+
     es.onmessage = (e) => {
+      console.log("EventSource message received:", e.data.substring(0, 100));
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === "start") {
+          console.log("Stream started with id:", msg.id);
           setIsBuilding(true);
         } else if (msg.type === "partial") {
           const payload = msg.payload || {};
-          
-          let text = "";
-          if (payload.message) {
-            text = payload.message;
-          } else if (payload.e === "file_created" && payload.file_path) {
-            text = `Created file: ${payload.file_path}`;
-          } else if (payload.e === "tool_started" && payload.tool_name) {
-            text = `Running tool: ${payload.tool_name}`;
-          } else if (payload.e === "tool_completed" && payload.tool_name) {
-            text = `Completed: ${payload.tool_name}`;
-          } else if (payload.e === "planner_complete") {
-            text = "✓ Planning completed";
-          } else if (payload.e === "builder_complete") {
-            text = "✓ Build completed";
-          } else if (payload.e === "validation_success") {
-            text = "✓ Validation successful";
-          } else if (payload.e === "app_check_complete") {
-            text = "✓ Application check completed";
-          } else if (payload.e) {
-            text = `${payload.e}`;
-          }
+          const text = payload.message || "";
           
           if (text) {
             setMessages((prev) => {
@@ -77,7 +81,7 @@ export default function ChatIdPage() {
                 const updated = [...prev];
                 updated[updated.length - 1] = {
                   ...last,
-                  content: (last.content || "") + "\n" + text,
+                  content: text,
                 };
                 return updated;
               }
@@ -93,18 +97,32 @@ export default function ChatIdPage() {
             });
           }
         } else if (msg.type === "message") {
+          console.log("Message type received");
         } else if (msg.type === "done") {
+          console.log("Stream done");
           setIsBuilding(false);
+          es.close();
+          streamRef.current = null;
         } else if (msg.type === "error") {
+          console.error("Stream error:", msg.message);
           setError(msg.message || "Streaming error");
           setIsBuilding(false);
+          es.close();
+          streamRef.current = null;
         }
-      } catch {
+      } catch (parseError) {
+        console.error("Failed to parse stream message:", parseError, e.data);
       }
     };
 
-    es.onerror = () => {
-      console.error("EventSource error");
+    es.onerror = (error) => {
+      console.error("EventSource error:", error);
+      console.log("EventSource readyState:", es.readyState);
+      if (es.readyState === EventSource.CLOSED) {
+        console.log("EventSource connection was closed");
+        setIsBuilding(false);
+        streamRef.current = null;
+      }
     };
   }, [chatId]);
 
@@ -158,27 +176,39 @@ export default function ChatIdPage() {
       try {
         setIsLoading(true);
         
-        const messages=await getChatMessages(chatId);
-        setMessages(messages);
+        const fetchedMessages = await getChatMessages(chatId);
+        setMessages(fetchedMessages);
 
         try {
-          const sandboxRes = await fetch(`/api/sandbox/${chatId}`);
-          if (sandboxRes.ok) {
-            const data = await sandboxRes.json();
-            const url = `https://${data.host}`;
-            if (data.files) setFiles(data.files);
-  
-            await pollUrlUntilReady(url);
+          const projectRes = await fetch(`/api/sandbox/${chatId}`);
+          if (projectRes.ok) {
+            const data = await projectRes.json();
+            if (data.projectId) setProjectId(data.projectId);
+            if (data.projectState) setProjectState(data.projectState);
+            
+            if (data.projectState === "DEPLOYED" && data.deployedUrl) {
+              setDeployedUrl(data.deployedUrl);
+              setAppUrl(data.deployedUrl);
+              setIsCheckingUrl(false);
+              
+            } else {
+              const url = `https://${data.host}`;
+              if (data.files) setFiles(data.files);
+              await pollUrlUntilReady(url);
+            }
           }
         } catch (err) {
-          console.error("Error fetching sandbox info:", err);
+          console.error("Error fetching project info:", err);
         }
 
-    
-        const hasAssistantMessage = messages.some((msg) => msg.role === "assistant");
-        if (!hasAssistantMessage) {
-          openStream();
+        if (fetchedMessages.length > 0 && !hasStreamedRef.current) {
+          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
+          if (lastMessage.role === "user") {
+            hasStreamedRef.current = true;
+            openStream();
+          }
         }
+
       } catch (err) {
         console.error("Error fetching messages:", err);
         setError(err instanceof Error ? err.message : "Failed to load messages");
@@ -202,7 +232,6 @@ export default function ChatIdPage() {
     };
   }, []);
 
-  
   useEffect(() => {
     return () => {
       if (chatId) {
@@ -277,6 +306,50 @@ export default function ChatIdPage() {
 };
 
 
+  const fetchAnalytics = async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetch(`/api/analytics/${projectId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAnalytics(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch analytics:", err);
+    }
+  };
+
+  const handleToggleView = () => {
+    if (viewMode === "chat") {
+      fetchAnalytics();
+      setViewMode("analytics");
+    } else {
+      setViewMode("chat");
+    }
+  };
+
+  const handleDeploy = async () => {
+    if (!projectId) return;
+    setIsDeploying(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/deploy`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeployedUrl(data.deployedUrl);
+        setAppUrl(data.deployedUrl);
+        setProjectState("DEPLOYED");
+      } else {
+        console.error("Deploy failed:", data.error);
+      }
+    } catch (err) {
+      console.error("Deploy error:", err);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
   return (
     <div
       className="min-h-screen w-full bg-black relative overflow-hidden"
@@ -291,14 +364,19 @@ export default function ChatIdPage() {
       />
 
       <div className="relative z-10 h-screen flex flex-col">
-        <ChatIdHeader
-          showPreview={showPreview}
-          onTogglePreview={() => setShowPreview(!showPreview)}
-          onNewChat={() => router.push("/chat")}
-          onBack={() => router.push("/chat")} 
-        />
+        <div className="flex items-center justify-between shrink-0">
+          <ChatIdHeader
+            showPreview={showPreview}
+            onTogglePreview={() => setShowPreview(!showPreview)}
+            onToggleView={handleToggleView}
+            onBack={() => router.push("/")}
+            viewMode={viewMode}
+            isDeployed={projectState === "DEPLOYED"}
+          />
+        </div>
 
-        <div className="flex-1 flex overflow-hidden">
+     
+        <div className="flex-1 flex overflow-hidden min-h-0">
           <div
             className="flex flex-col border-r border-white/5"
             style={{
@@ -306,39 +384,58 @@ export default function ChatIdPage() {
               transition: isDragging ? "none" : "width 0.3s ease-out",
             }}>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {isLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="flex items-center gap-2 text-white/60">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span>Loading messages...</span>
-                  </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {viewMode === "analytics" ? (
+                <div className="h-full flex items-center justify-center">
+                  {analytics ? (
+                    <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-8 max-w-lg w-full">
+                      <h2 className="text-xl font-semibold text-white flex items-center gap-2 mb-6">
+                        <BarChart3 className="w-6 h-6" /> Analytics
+                      </h2>
+                      <div className="space-y-6">
+                        <div className="bg-white/5 rounded-lg p-6 text-center">
+                          <p className="text-4xl font-bold text-white">{analytics.totalViews}</p>
+                          <p className="text-white/60 text-sm mt-1">Total Page Views</p>
+                        </div>
+                        {analytics.viewsBySource.length > 0 && (
+                          <div>
+                            <p className="text-white/70 text-sm mb-3">Views by Source</p>
+                            <div className="space-y-2">
+                              {analytics.viewsBySource.map((item, i) => (
+                                <div key={i} className="flex justify-between text-sm bg-white/5 rounded-lg px-4 py-2">
+                                  <span className="text-white/80">{item.source}</span>
+                                  <span className="text-white font-medium">{item.count}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-white/60">
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Loading analytics...</span>
+                    </div>
+                  )}
                 </div>
-              ) : error ? (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              ) : null}
+              ) : (
+                <>
+                
 
-              {messages.map((msg, index) => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  isLastMessage={index === messages.length - 1}
-                  currentTool={null}
-                />
-              ))}
+                  {messages.map((msg, index) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      isLastMessage={index === messages.length - 1}
+                      currentTool={null}
+                    />
+                  ))}
 
-              <div ref={messagesEndRef} />
+                  <div ref={messagesEndRef} />
+                </>
+              )}
             </div>
-
-            {getAllToolCalls(messages).length > 0 && (
-              <ToolCallsDropdown
-                toolCalls={getAllToolCalls(messages)}
-                isExpanded={showAllToolsDropdown}
-                onToggle={() => setShowAllToolsDropdown(!showAllToolsDropdown)}
-              />
-            )}
 
             <ChatInput
               input={input}
@@ -363,6 +460,10 @@ export default function ChatIdPage() {
               previewWidth={previewWidth}
               projectId={chatId}
               files={files}
+              onDeploy={handleDeploy}
+              isDeploying={isDeploying}
+              deployedUrl={deployedUrl}
+              isDeployedProject={projectState === "DEPLOYED"}
             />
           )}                                                                                                                    
         </div>

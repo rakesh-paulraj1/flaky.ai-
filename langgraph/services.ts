@@ -66,7 +66,7 @@ export class SandboxService {
         try {
           await existing.sandbox.setTimeout(SANDBOX_TIMEOUT);
           existing.lastAccess = current_time;
-          // cancel any scheduled close when sandbox is re-used
+          
           const scheduled = this.scheduledCloses.get(id);
           if (scheduled) {
             clearTimeout(scheduled);
@@ -110,14 +110,12 @@ export class SandboxService {
       serverReady: false,
     });
 
-    // await this.restoreFilesFromDisk(id, sandbox);
     await this.startDevServer(id, sandbox);
 
     return sandbox;
   }
 
   public scheduleCloseSandbox(id: string, ttlMs = 5 * 60 * 1000) {
-    // clear existing scheduled close
     const existingTimer = this.scheduledCloses.get(id);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -143,7 +141,7 @@ export class SandboxService {
         background: true,
       });
       
-      // Mark server as ready
+    
       const info = this.sandboxes.get(id);
       if (info) {
         info.serverReady = true;
@@ -342,7 +340,7 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
 
   public async closeSandbox(id: string) {
     const info = this.sandboxes.get(id);
-    // clear any scheduled timer
+   
     const scheduled = this.scheduledCloses.get(id);
     if (scheduled) {
       clearTimeout(scheduled);

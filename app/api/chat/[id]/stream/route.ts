@@ -4,7 +4,6 @@ import { authentication } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 import { runAgent } from "@/langgraph/graph";
 import { sandboxService } from "@/langgraph/services";
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -23,13 +22,13 @@ export async function GET(
     });
   }
 
-
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
     include: {
       project: true,
     },
   });
+
   if (!chat) {
     return new Response(JSON.stringify({ error: "Chat not found" }), {
       status: 404,
@@ -45,7 +44,7 @@ export async function GET(
   });
 
   if (!latestMessage) {
-    console.log("no messages available");
+    console.log("Stream: No user message found for chat", chatId);
     return new Response(JSON.stringify({ error: "No user message found" }), {
       status: 404,
     });
@@ -55,8 +54,7 @@ export async function GET(
     ? {
         productName: chat.project.productName || "",
         productDescription: chat.project.productDetails || "",
-        imageLink:
-          chat.project.generatedimageLink || "",
+        imageLink: chat.project.generatedimageLink || "",
       }
     : undefined;
 
@@ -86,7 +84,6 @@ export async function GET(
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(eventPayload)}\n\n`)
             );
-
             if (payload.e === "thinking" && payload.message) {
               assistantContent += payload.message + "\n";
             } else if (payload.e === "planner_complete" && payload.plan) {
@@ -94,22 +91,8 @@ export async function GET(
             } else if (payload.e === "builder_complete") {
               assistantContent += "Build completed\n";
             }
-
-            try {
-              await prisma.message.create({
-                data: {
-                  chatId,
-                  role: "assistant",
-                  content: JSON.stringify(payload),
-                  eventType: payload.e as string,
-                },
-              });
-            } catch (dbError) {
-              console.error("Failed to save event message:", dbError);
-            }
           },
         });
-
         if (assistantContent) {
           await prisma.message.create({
             data: {

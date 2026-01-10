@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const productName = formData.get("productName") as string;
     const productDescription = formData.get("productDescription") as string;
-    const ctaLink = formData.get("ctaLink") as string;
     const imagePrompt = formData.get("imagePrompt") as string;
     const generatedimage=formData.get("generatedimage") as File;
 
@@ -61,7 +60,6 @@ export async function POST(req: NextRequest) {
         chatId: chat.id,
         userId: userid,
         productName,
-        ctalink: ctaLink,
         productDetails: productDescription,
         imageLink: imageLink,
         imageGenerationEntities: imagePrompt,

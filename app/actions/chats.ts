@@ -16,3 +16,5 @@ export async function getChatMessages(chatId: string): Promise<Message[]> {
     created_at: msg.createdAt.toISOString(),
   }));
 }
+
+

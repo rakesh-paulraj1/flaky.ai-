@@ -30,18 +30,7 @@ export function ChatInput({
               disabled={ isBuilding}
             />
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white"
-              >
-                <Plus size={18} />
-              </button>
-              <button
-                type="button"
-                className="p-2 hover:bg-white/10 rounded transition text-white/60 hover:text-white"
-              >
-                <Paperclip size={18} />
-              </button>
+             
               <Button
                 type="submit"
                 disabled={ !input.trim() || isBuilding}

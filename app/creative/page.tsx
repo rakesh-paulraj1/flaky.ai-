@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatNavbar } from "@/components/chat";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Loader2 } from "lucide-react";
+import { HoverBorderGradient } from "@/components/ui/hoverbutton";
 import puter from '@heyputer/puter.js'
 
 export default function CreativePage() {
@@ -111,7 +112,7 @@ const dataURLtoBlob = (dataURL: string): Blob => {
       const submitFormData = new FormData();
       submitFormData.append("productName", formData.productName);
       submitFormData.append("productDescription", formData.productDescription);
-      submitFormData.append("ctaLink", formData.ctaLink);
+    
       submitFormData.append("imagePrompt", formData.imagePrompt);
       
       if (files[0]) {
@@ -218,20 +219,6 @@ const dataURLtoBlob = (dataURL: string): Blob => {
                 <FileUpload onChange={handleFileUpload} />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  CTA Link
-                </label>
-                <input
-                  type="url"
-                  value={formData.ctaLink}
-                  onChange={(e) =>
-                    setFormData({ ...formData, ctaLink: e.target.value })
-                  }
-                  className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-slate-100 focus:border-transparent"
-                  placeholder="https://your-store.com/product"
-                />
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -253,21 +240,24 @@ const dataURLtoBlob = (dataURL: string): Blob => {
                   {error}
                 </div>
               )}
-
-              <button
-                type="submit"
-                disabled={isLoading || !formData.productName.trim()}
-                className="w-full px-4 py-3 rounded-md border border-neutral-300 bg-neutral-100 text-neutral-500 text-sm hover:-translate-y-1 transform transition duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                    {isGenerating ? "Generating Image..." : "Creating Project..."}
-                  </span>
-                ) : (
-                  "Generate Creative"
-                )}
-              </button>
+              <div className="flex justify-center w-full">
+                <HoverBorderGradient
+                  containerClassName="rounded-full w-full"
+                  as="button"
+                  type="submit"
+                  disabled={isLoading || !formData.productName.trim()}
+                  className="dark:bg-black bg-white text-black dark:text-white flex items-center justify-center w-full"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                      {isGenerating ? "Generating Image..." : "Creating Project..."}
+                    </span>
+                  ) : (
+                    "Generate Creative"
+                  )}
+                </HoverBorderGradient>
+              </div>
             </form>
           </div>
         </div>
