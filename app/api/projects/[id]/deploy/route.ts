@@ -35,59 +35,39 @@ export async function POST(
 
     const sandbox = await sandboxService.getSandbox(project.chatId);
 
-    await sandbox.commands.run(
-      'mkdir -p /home/user/react-app/public && echo "/*    /index.html   200" > /home/user/react-app/public/_redirects'
+    const buildResult = await sandbox.commands.run(
+      "cd /home/user/react-app && npm run build",
+      { timeoutMs: 120000 }
     );
 
-    const lsResult = await sandbox.commands.run("ls -la /home/user/react-app/");
-    console.log("Source folder contents:", lsResult.stdout);
+    await sandbox.commands.run(
+      'echo "/*    /index.html   200" > /home/user/react-app/dist/_redirects'
+    );
 
-    console.log("Creating zip of source code...");
     const zipResult = await sandbox.commands.run(`
-      cd /home/user/react-app && \\
-      python3 -c "
-import zipfile
-import os
-
-exclude_dirs = {'node_modules', '.git', 'dist', '.cache'}
-exclude_files = {'.DS_Store'}
-
-with zipfile.ZipFile('/tmp/source.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
-    for root, dirs, files in os.walk('.'):
-        # Exclude certain directories
-        dirs[:] = [d for d in dirs if d not in exclude_dirs]
-        for file in files:
-            if file not in exclude_files:
-                file_path = os.path.join(root, file)
-                arcname = file_path[2:] if file_path.startswith('./') else file_path
-                zf.write(file_path, arcname)
-print('Source zip created successfully')
+cd /home/user/react-app && python3 -c "
+import zipfile, os
+with zipfile.ZipFile('/tmp/dist.zip', 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk('dist'):
+        for f in files:
+            zf.write(os.path.join(root, f))
 "
     `);
 
     if (zipResult.exitCode !== 0) {
-      console.error("Zip failed:", zipResult.stderr);
       return NextResponse.json(
         { error: "Failed to create archive", details: zipResult.stderr },
         { status: 500 }
       );
     }
-    console.log("Zip output:", zipResult.stdout);
 
-    // Debug: Check zip file
-    const zipSizeResult = await sandbox.commands.run(
-      "ls -la /tmp/source.zip && unzip -l /tmp/source.zip | head -30"
-    );
-    console.log("Zip file info:", zipSizeResult.stdout);
-
-    const sourceArchive = await sandbox.files.read("/tmp/source.zip");
-    console.log("Source zip file size:", sourceArchive.length, "bytes");
+    const distArchive = await sandbox.files.read("/tmp/dist.zip", {
+      format: "bytes",
+    });
 
     let siteId = project.netlifySiteId;
-    let siteUrl = "";
 
     if (!siteId) {
-      console.log("Creating new Netlify site with build settings...");
       const sanitizedName = project.productName
         .replace(/[^a-zA-Z0-9]/g, "-")
         .toLowerCase()
@@ -101,17 +81,64 @@ print('Source zip created successfully')
         },
         body: JSON.stringify({
           name: `${sanitizedName}-${Date.now()}`,
-          // Build settings for Vite React app
-          build_settings: {
-            cmd: "npm install && npm run build",
-            dir: "dist",
-          },
         }),
       });
 
       if (!createRes.ok) {
         const error = await createRes.text();
-        console.error("Failed to create Netlify site:", error);
+
+        return NextResponse.json(
+          { error: "Failed to create Netlify site", details: error },
+          { status: 500 }
+        );
+      }
+
+      const siteData = await createRes.json();
+
+      siteId = siteData.id;
+
+      if (!siteId) {
+        return NextResponse.json(
+          { error: "Failed to get site ID from Netlify", details: siteData },
+          { status: 500 }
+        );
+      }
+
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { netlifySiteId: siteId },
+      });
+    }
+
+    let deployRes = await fetch(`${NETLIFY_API}/sites/${siteId}/deploys`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${netlifyToken}`,
+        "Content-Type": "application/zip",
+      },
+      body: Buffer.from(distArchive),
+    });
+
+    if (deployRes.status === 404) {
+      const sanitizedName = project.productName
+        .replace(/[^a-zA-Z0-9]/g, "-")
+        .toLowerCase()
+        .slice(0, 30);
+
+      const createRes = await fetch(`${NETLIFY_API}/sites`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${netlifyToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: `${sanitizedName}-${Date.now()}`,
+        }),
+      });
+
+      if (!createRes.ok) {
+        const error = await createRes.text();
+
         return NextResponse.json(
           { error: "Failed to create Netlify site", details: error },
           { status: 500 }
@@ -120,29 +147,25 @@ print('Source zip created successfully')
 
       const siteData = await createRes.json();
       siteId = siteData.id;
-      console.log("Created site with ID:", siteId);
-      siteUrl = siteData.ssl_url || siteData.url;
-      console.log("Site URL:", siteUrl);
+
+      await prisma.project.update({
+        where: { id: projectId },
+        data: { netlifySiteId: siteId },
+      });
+
+      deployRes = await fetch(`${NETLIFY_API}/sites/${siteId}/deploys`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${netlifyToken}`,
+          "Content-Type": "application/zip",
+        },
+        body: Buffer.from(distArchive),
+      });
     }
 
-    console.log(
-      "Deploying source code to Netlify (will build on their servers)..."
-    );
-    const deployRes = await fetch(`${NETLIFY_API}/sites/${siteId}/deploys`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${netlifyToken}`,
-        "Content-Type": "application/zip",
-      },
-      body: sourceArchive,
-    });
-
     const deployResponseText = await deployRes.text();
-    console.log("Deploy response status:", deployRes.status);
-    console.log("Deploy response body:", deployResponseText);
 
     if (!deployRes.ok) {
-      console.error("Failed to deploy to Netlify:", deployResponseText);
       return NextResponse.json(
         { error: "Failed to deploy to Netlify", details: deployResponseText },
         { status: 500 }
@@ -152,9 +175,6 @@ print('Source zip created successfully')
     const deployData = JSON.parse(deployResponseText);
     const deployedUrl =
       deployData.ssl_url || deployData.deploy_ssl_url || deployData.url;
-    console.log("Deploy initiated:", deployedUrl);
-    console.log("Deploy state:", deployData.state);
-    console.log("Deploy ID:", deployData.id);
 
     await prisma.project.update({
       where: { id: projectId },
@@ -169,11 +189,9 @@ print('Source zip created successfully')
       success: true,
       deployedUrl,
       siteId,
-      deployId: deployData.id,
       deployState: deployData.state,
     });
   } catch (error) {
-    console.error("Deploy failed:", error);
     return NextResponse.json(
       { error: "Deployment failed", details: String(error) },
       { status: 500 }

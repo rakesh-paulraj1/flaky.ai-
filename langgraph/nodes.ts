@@ -405,9 +405,7 @@ Add this useEffect at the start of your Home component to track page visits:
 
 React.useEffect(() => {
   const params = new URLSearchParams(window.location.search);
-  fetch('${
-    process.env.NEXT_PUBLIC_APP_URL || "https://flaky.ai"
-  }/api/analytics/${state.project_id}', {
+  fetch('${process.env.NEXT_PUBLIC_APP_URL}/api/analytics/${state.project_id}', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
