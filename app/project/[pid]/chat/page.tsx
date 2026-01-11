@@ -34,6 +34,7 @@ export default function ProjectChatPage() {
   const [catchyPhrase, setCatchyPhrase] = useState("");
   const [ctaInputType, setCtaInputType] = useState<"email" | "phone">("email");
   const [apiSpecification, setApiSpecification] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (!projectId) {
@@ -59,9 +60,9 @@ export default function ProjectChatPage() {
   }, [projectId,router]);
 
   const handleGenerateWebsite = async () => {
-    if (!catchyPhrase.trim() || !project?.chatId) return;
+    if (!catchyPhrase.trim() || !project?.chatId || isGenerating) return;
 
-    setShowDialog(false);
+    setIsGenerating(true);
 
     try {
       const response = await fetch(`/api/chat/${project.chatId}`, {
@@ -80,6 +81,7 @@ export default function ProjectChatPage() {
     } catch (err) {
       console.error("Error generating website:", err);
       setError(err instanceof Error ? err.message : "Failed to generate website");
+      setIsGenerating(false);
     }
   };
 
@@ -261,10 +263,16 @@ export default function ProjectChatPage() {
               <HoverBorderGradient  containerClassName="rounded-full"
         as="button"
                 onClick={handleGenerateWebsite}
-                disabled={!catchyPhrase.trim()}
+                disabled={!catchyPhrase.trim() || isGenerating}
               >
-             
-                Generate
+                {isGenerating ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </span>
+                ) : (
+                  "Generate"
+                )}
               </HoverBorderGradient>
                
             </div>

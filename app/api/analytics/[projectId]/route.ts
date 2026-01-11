@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -22,12 +32,15 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ success: true, id: pageView.id });
+    return NextResponse.json(
+      { success: true, id: pageView.id },
+      { headers: corsHeaders }
+    );
   } catch (error) {
     console.error("Failed to record page view:", error);
     return NextResponse.json(
       { error: "Failed to record page view" },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

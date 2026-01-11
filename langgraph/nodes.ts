@@ -216,10 +216,16 @@ ${enhancedPrompt}
 ${previousContext}
 
 === YOUR MISSION ===
-Create a stunning, single-page CAMPAIGN LANDING PAGE for this product. The goal is to:
-1. Capture visitor attention immediately with the product image and catchy headline
+Create a CLASSY, SOPHISTICATED landing page for this product. The goal is to:
+1. Capture visitor attention with elegant, premium aesthetics
 2. Communicate the product's value proposition clearly
 3. Convert visitors through a compelling CTA form
+
+=== DESIGN STYLE GUIDELINES ===
+- Use MUTED, SOPHISTICATED colors - NO bright neon or harsh contrasting colors
+- Prefer soft gradients, subtle shadows, and elegant typography
+- Think luxury brand aesthetics: clean, minimal, premium feel
+- Color inspiration: soft neutrals, muted tones, subtle accents
 
 
 
@@ -244,14 +250,23 @@ ${
     : ""
 }
 
-Provide a concise implementation plan covering:
-- Color palette to use (based on image analysis if provided)
-- Section-by-section breakdown
-- Component structure within Home.jsx
-- Form handling approach
-- Animation/interaction details
+OUTPUT FORMAT (Keep it clean and visual):
 
-Write as clear, actionable text. Be specific about colors (use hex codes when possible).
+**🎨 Color Palette**
+- Primary: [hex] - [usage]
+- Accent: [hex] - [usage]  
+- Text: [hex]
+
+**📱 Page Sections**
+1. Hero - [brief description]
+2. Features - [brief description]
+3. CTA Form - [brief description]
+4. Footer
+
+**✨ Key Design Elements**
+- [2-3 bullet points about animations/effects]
+
+Keep the plan SHORT and SCANNABLE. No code, no technical details. Just the visual design summary.
 `;
 
     const messageContent: Array<
@@ -275,14 +290,14 @@ Write as clear, actionable text. Be specific about colors (use hex codes when po
 
     const messages = [
       new SystemMessage(
-        "You are an expert React developer creating high-converting product campaign landing pages. When provided with a product image, analyze its colors, style, and mood to create a cohesive design theme  just need the plan to implement and not the code  also it is for performance marketers so they dont know much about app scepfication just need how are you going to design thats it."
+        "You are a creative director generating landing page design briefs. Output ONLY a short, visual design summary. Use emojis for headers. Keep it under 15 lines. No code, no technical specs. IMPORTANT: Use CLASSY, MUTED colors only - NO bright neons or harsh contrasts. Think luxury brand aesthetics."
       ),
       new HumanMessage({ content: messageContent }),
     ];
 
     await safeSendEvent(sendEvent, {
       e: "generating_plan",
-      message: "Generating implementation plan...",
+      message: "Generating design brief...",
     });
 
     let planText = "";
@@ -293,7 +308,7 @@ Write as clear, actionable text. Be specific about colors (use hex codes when po
         ? response.content
         : String(response.content || "");
 
-    const formattedPlan = ` **IMPLEMENTATION PLAN**
+    const formattedPlan = `**DESIGN BRIEF**
 
 ${planText}
 `;
@@ -399,6 +414,14 @@ CRITICAL: SINGLE FILE APPROACH
 - Put helper functions inside the Home component if needed
 - Use inline components or component functions within Home.jsx
 - Do not use any 3rd packages no usage of icons is allowed from 3rd party packages
+
+STYLING REQUIREMENTS (VERY IMPORTANT):
+- Use CLASSY, SOPHISTICATED, MUTED colors only
+- NO bright neon colors (no #FF0000, #00FF00, #00FFFF, etc.)
+- NO harsh color contrasts - prefer subtle, elegant combinations
+- Think luxury brand aesthetics: soft neutrals, muted tones, subtle accents
+- Use soft gradients, subtle shadows, and clean typography
+- Prefer colors like: slate, zinc, stone, neutral grays, soft blues, muted greens
 
 ANALYTICS TRACKING (REQUIRED):
 Add this useEffect at the start of your Home component to track page visits:
@@ -529,8 +552,6 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
 
         if (fileCreatedSuccessfully) {
           await new Promise((resolve) => setTimeout(resolve, 500));
-
-          // Update index.html title with product name
           try {
             const productName = state.product_name || "Product";
             const indexPath = "/home/user/react-app/index.html";

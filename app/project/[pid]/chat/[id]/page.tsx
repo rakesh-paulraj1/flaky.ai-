@@ -79,9 +79,10 @@ export default function ChatIdPage() {
               const last = prev[prev.length - 1];
               if (last && last.role === "assistant" && last.id === msg.id) {
                 const updated = [...prev];
+                const newContent = last.content + "\n\n" + text;
                 updated[updated.length - 1] = {
                   ...last,
-                  content: text,
+                  content: newContent.trim(),
                 };
                 return updated;
               }
@@ -190,6 +191,7 @@ export default function ChatIdPage() {
               setDeployedUrl(data.deployedUrl);
               setAppUrl(data.deployedUrl);
               setIsCheckingUrl(false);
+              setViewMode("analytics");
               
             } else {
               const url = `https://${data.host}`;
@@ -245,6 +247,12 @@ export default function ChatIdPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (viewMode === "analytics" && projectId) {
+      fetchAnalytics();
+    }
+  }, [viewMode, projectId]);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -318,16 +326,6 @@ export default function ChatIdPage() {
       console.error("Failed to fetch analytics:", err);
     }
   };
-
-  const handleToggleView = () => {
-    if (viewMode === "chat") {
-      fetchAnalytics();
-      setViewMode("analytics");
-    } else {
-      setViewMode("chat");
-    }
-  };
-
   const handleDeploy = async () => {
     if (!projectId) return;
     setIsDeploying(true);
@@ -340,6 +338,7 @@ export default function ChatIdPage() {
         setDeployedUrl(data.deployedUrl);
         setAppUrl(data.deployedUrl);
         setProjectState("DEPLOYED");
+        setViewMode("analytics");
       } else {
         console.error("Deploy failed:", data.error);
       }
@@ -368,10 +367,7 @@ export default function ChatIdPage() {
           <ChatIdHeader
             showPreview={showPreview}
             onTogglePreview={() => setShowPreview(!showPreview)}
-            onToggleView={handleToggleView}
             onBack={() => router.push("/")}
-            viewMode={viewMode}
-            isDeployed={projectState === "DEPLOYED"}
           />
         </div>
 

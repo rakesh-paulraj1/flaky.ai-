@@ -12,7 +12,12 @@ export default async function proxy(req: NextRequest) {
 
   if (!token) {
     if (pathname.startsWith("/api/")) {
+    
       if (pathname.startsWith("/api/auth/")) {
+        return NextResponse.next();
+      }
+      
+      if (pathname.startsWith("/api/analytics/")) {
         return NextResponse.next();
       }
       return NextResponse.json(
@@ -21,7 +26,6 @@ export default async function proxy(req: NextRequest) {
       );
     }
 
- 
     if (pathname !== "/") {
       const url = new URL("/", req.url);
       url.searchParams.set("callbackUrl", req.url);
@@ -33,5 +37,11 @@ export default async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/chat/:path*", "/api/proxy/:path*", "/api/((?!auth).*)"],
+  matcher: [
+    "/",
+    "/creative",
+    "/projects/:path*",
+    "/api/proxy/:path*",
+    "/api/((?!auth).*)",
+  ],
 };

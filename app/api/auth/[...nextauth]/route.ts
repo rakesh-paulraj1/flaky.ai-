@@ -79,7 +79,7 @@ export const authentication: NextAuthOptions = {
       return session;
     },
     async redirect() {
-      return "/chat";
+      return "/creative";
     },
   },
 };
