@@ -313,21 +313,6 @@ Keep the plan SHORT and SCANNABLE. No code, no technical details. Just the visua
 ${planText}
 `;
 
-    if (projectId) {
-      try {
-        await prisma.message.create({
-          data: {
-            chatId: projectId,
-            role: "assistant",
-            content: formattedPlan,
-            eventType: "plan",
-          },
-        });
-      } catch (dbError) {
-        console.error("Failed to store plan message:", dbError);
-      }
-    }
-
     await safeSendEvent(sendEvent, {
       e: "planner_complete",
       message: ` ${formattedPlan}`,
@@ -422,6 +407,7 @@ STYLING REQUIREMENTS (VERY IMPORTANT):
 - Think luxury brand aesthetics: soft neutrals, muted tones, subtle accents
 - Use soft gradients, subtle shadows, and clean typography
 - Prefer colors like: slate, zinc, stone, neutral grays, soft blues, muted greens
+- TYPOGRAPHY: You MUST use distinct, classy fonts. Specifically use 'Passero One' and 'Wallpoet' from Google Fonts. Add the import in a style tag: @import url('https://fonts.googleapis.com/css2?family=Passero+One&family=Wallpoet&display=swap');
 
 ANALYTICS TRACKING (REQUIRED):
 Add this useEffect at the start of your Home component to track page visits:
