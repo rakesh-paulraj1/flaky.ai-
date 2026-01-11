@@ -238,11 +238,15 @@ export default function ProjectChatPage() {
                   value={apiSpecification}
                   onChange={(e) => setApiSpecification(e.target.value)}
                   placeholder={ctaInputType === "email" 
-                    ? "e.g., POST /api/subscribe with fields: email, name"
-                    : "e.g., POST /api/subscribe with fields: phone, name"
+                    ? `curl -X POST http://your-api.com/api/subscribe \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"user@example.com"}'`
+                    : `curl -X POST http://your-api.com/api/phones \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"+1234567890"}'`
                   }
                   rows={4}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all resize-none"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all resize-none font-mono text-sm"
                 />
               </div>
             </div>

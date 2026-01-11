@@ -84,12 +84,18 @@ export async function GET(
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify(eventPayload)}\n\n`)
             );
-            if (payload.e === "thinking" && payload.message) {
-              assistantContent += payload.message + "\n";
-            } else if (payload.e === "planner_complete" && payload.plan) {
-              assistantContent += "Plan created\n";
-            } else if (payload.e === "builder_complete") {
-              assistantContent += "Build completed\n";
+
+            // Capture content based on event type
+            if (payload.message) {
+              // Most events have their content in payload.message
+              if (
+                payload.e === "planner_complete" ||
+                payload.e === "builder_complete" ||
+                payload.e === "executor_complete" ||
+                payload.e === "thinking"
+              ) {
+                assistantContent += payload.message + "\n\n";
+              }
             }
           },
         });

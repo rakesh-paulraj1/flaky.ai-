@@ -529,6 +529,20 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
 
         if (fileCreatedSuccessfully) {
           await new Promise((resolve) => setTimeout(resolve, 500));
+
+          // Update index.html title with product name
+          try {
+            const productName = state.product_name || "Product";
+            const indexPath = "/home/user/react-app/index.html";
+            const indexContent = await sandbox.files.read(indexPath);
+            const updatedIndex = indexContent.replace(
+              /<title>.*?<\/title>/,
+              `<title>${productName}</title>`
+            );
+            await sandbox.files.write(indexPath, updatedIndex);
+          } catch (titleError) {
+            console.error("Failed to update index.html title:", titleError);
+          }
         }
       } catch (streamError) {
         console.error("Stream error:", streamError);
