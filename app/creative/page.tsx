@@ -56,7 +56,7 @@ const dataURLtoBlob = (dataURL: string): Blob => {
 
   const handleCreativeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.productName.trim() || isLoading) return;
+    if (!formData.productName.trim() || !formData.imagePrompt.trim() || isLoading) return;
 
     setIsLoading(true);
     setIsGenerating(true);
@@ -95,8 +95,14 @@ const dataURLtoBlob = (dataURL: string): Blob => {
           model: "gemini-2.5-flash-image-preview",
           input_image: inputImageBase64,
           input_image_mime_type: "image/png",
-        }, true);
-
+        });
+        //this is to generate test images im finaicialy poor  
+  // const generatedImage = await puter.ai.txt2img({
+  //         prompt: finalPrompt,
+  //         model: "gemini-2.5-flash-image-preview",
+  //         input_image: inputImageBase64,
+  //         input_image_mime_type: "image/png",
+  //       }, true);
         console.log("Image generated successfully");
         setIsGenerating(false);
         if (generatedImage && generatedImage.src) {
@@ -222,7 +228,7 @@ const dataURLtoBlob = (dataURL: string): Blob => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Image Generation Prompt
+                  Image Generation Prompt *
                 </label>
                 <textarea
                   value={formData.imagePrompt}
@@ -232,6 +238,7 @@ const dataURLtoBlob = (dataURL: string): Blob => {
                   rows={4}
                   className="w-full bg-zinc-800/50 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-slate-100 focus:border-transparent resize-none"
                   placeholder="Describe how you want your product image enhanced (e.g., 'Add vibrant background, make the product pop, professional lighting')"
+                  required
                 />
               </div>
 
@@ -245,7 +252,7 @@ const dataURLtoBlob = (dataURL: string): Blob => {
                   containerClassName="rounded-full w-full"
                   as="button"
                   type="submit"
-                  disabled={isLoading || !formData.productName.trim()}
+                  disabled={isLoading || !formData.productName.trim() || !formData.imagePrompt.trim()}
                   className="dark:bg-black bg-white text-black dark:text-white flex items-center justify-center w-full"
                 >
                   {isLoading ? (

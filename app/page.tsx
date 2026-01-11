@@ -1,387 +1,252 @@
-import { ChevronRight, Plus } from "lucide-react";
+"use client";
 
+import { motion } from "motion/react";
+import React from "react";
+import { AuthButton } from "@/components/auth/AuthButton";
+import { HoverBorderGradient } from "@/components/ui/hoverbutton";
 import {
   FaCode,
-  FaMagic,
   FaRocket,
   FaBolt,
-  FaCheckCircle,
+ 
+  FaGithub,
 } from "react-icons/fa";
-import { IoSparkles } from "react-icons/io5";
-import { MdAutoAwesome, MdSpeed, MdBuild } from "react-icons/md";
-import { AiFillThunderbolt } from "react-icons/ai";
-import Link from "next/link";
-import { AuthButton } from "@/components/auth/AuthButton";
+import { IoSparkles, IoLayers } from "react-icons/io5";
+import { MdAutoAwesome, MdSpeed, MdBuild, MdDevices } from "react-icons/md";
 import "./page-styles.css";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { AuthModal } from "@/components/auth/AuthModal";
 
 export default function Home() {
+  const { status } = useSession();
+  const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleNavigation = (path: string) => {
+    if (status === "authenticated") {
+      router.push(path);
+    } else {
+      setIsModalOpen(true);
+    }
+  };
   return (
-    <div
-      className="min-h-screen w-full relative overflow-hidden"
-      style={{ backgroundColor: "#0a0a0a" }}
-    >
-      <div
-        className="absolute w-full top-0 left-0 right-0 z-0 pointer-events-none"
-        style={{
-          height: "700px",
-          background: `
-            radial-gradient(
-              ellipse 90% 60% at 50% 0%,
-              rgba(115, 115, 115, 0.25) 0%,
-              rgba(64, 64, 64, 0.15) 40%,
-              rgba(0, 0, 0, 0) 80%
-            )
-          `,
-        }}
-      />
+    <div className="min-h-screen w-full bg-black text-white overflow-x-hidden font-sans selection:bg-purple-500/30">
+      {/* Background Ambience */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-900/20 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-900/20 blur-[120px]" />
+        <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[60%] h-[60%] rounded-full bg-indigo-900/10 blur-[150px]" />
+      </div>
 
-      <main
-        className="landing-page-wrapper w-full font-sans overflow-x-hidden relative z-10"
-        style={{
-          fontFamily:
-            "var(--font-outfit), ui-sans-serif, system-ui, sans-serif",
-          backgroundColor: "transparent",
-        }}
-      >
-
-        <section className="py-20 px-6">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <span className="text-neutral-400">Your</span>
-              <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 px-3 py-2 rounded-lg border border-neutral-800">
-                <IoSparkles size={18} className="text-yellow-400" />
-                <span className="bg-gradient-to-r from-yellow-400 via-pink-500 to-blue-500 bg-clip-text text-transparent font-bold">
-                  AI
-                </span>
-              </div>
-              <span className="text-neutral-400">web app builder</span>
+      {/* Navbar Placeholder / Header */}
+      <header className="fixed top-0 w-full z-50 border-b border-white/5 bg-black/50 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 blur-sm opacity-50" />
+              <IoSparkles className="relative text-white w-6 h-6" />
             </div>
-
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight text-balance">
-              Create Web Applications with AI generated Creatives 
-            </h1>
-
-            <p className="text-xl text-neutral-400 mb-8 max-w-2xl mx-auto text-balance">
-              Transform your ideas into production-ready React applications.
-              Just describe what you want to build, and our AI agent handles the
-              rest.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
-              
-              
-              
-              <AuthButton className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full hover:from-blue-500 hover:to-purple-500 transition font-semibold flex items-center gap-2 group">
-                START BUILDING FOR FREE
-              </AuthButton>
-
-            </div>
-
-         
-
-{/*             
-            <div className="mt-16 rounded-xl border border-neutral-800 bg-neutral-900/50 overflow-hidden">
-              <img
-                src="/code.png"
-                alt="WEB BUILDER AI Interface Demo"
-                className="w-full"
-              />
-            </div> */}
+            <span className="font-bold text-xl tracking-tight">Flaky AI</span>
           </div>
-        </section>
-
-   
-        {/* Feature Icons Section */}
-        <section className="py-20 px-6 border-t border-neutral-800">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
-              <div className="flex flex-col items-start">
-                <MdAutoAwesome size={32} className="mb-4 text-neutral-400" />
-                <h3 className="text-lg font-semibold mb-2">
-                  AI-Powered Development
-                </h3>
-                <p className="text-neutral-500">
-                  Let AI write your code, set up routing, and configure your
-                  entire React application
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <MdSpeed size={32} className="mb-4 text-neutral-400" />
-                <h3 className="text-lg font-semibold mb-2">Lightning Fast</h3>
-                <p className="text-neutral-500">
-                  Go from idea to deployed application in minutes, not days or
-                  weeks
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <FaBolt size={32} className="mb-4 text-neutral-400" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Real-time Preview
-                </h3>
-                <p className="text-neutral-500">
-                  See your application come to life in real-time as the AI
-                  builds it
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-20 px-6 border-t border-neutral-800">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl md:text-6xl font-bold mb-4 text-balance">
-                Build smarter.
-              </h2>
-              <p className="text-4xl md:text-5xl font-bold text-neutral-600 mb-6 text-balance">
-                Code faster.
-              </p>
-              <p className="text-xl text-neutral-400 text-balance">
-                Our AI agent understands your requirements and builds complete
-                React applications with proper architecture.
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-8">
-              {/* Describe Card */}
-              <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
-                <h3 className="text-2xl font-semibold mb-3">
-                  Describe your app
-                </h3>
-                <p className="text-neutral-400 mb-8">
-                  Tell the AI what you want to build in natural language - no
-                  technical jargon required.
-                </p>
-                <div className="bg-black rounded-lg p-6 mb-6 h-40 border border-neutral-700 flex items-center justify-center">
-                  <div className="text-center text-neutral-600">
-                    <FaCode size={24} className="mx-auto mb-2 opacity-30" />
-                    <p className="text-sm">
-                      "Build a todo app with drag-and-drop"
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 text-neutral-500 text-sm">
-                  <IoSparkles size={16} />
-                  <span>AI understands your intent</span>
-                </div>
-              </div>
-
-             
-              <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
-                <h3 className="text-2xl font-semibold mb-3">Watch it build</h3>
-                <p className="text-neutral-400 mb-8">
-                  See your application being created in real-time with live
-                  preview.
-                </p>
-                <div className="bg-black rounded-lg p-6 mb-6 border border-neutral-700">
-                  <div className="space-y-3">
-                    <div className="bg-neutral-900 rounded px-3 py-2 flex items-center justify-between">
-                      <span className="text-neutral-400 flex items-center gap-2">
-                        <FaCheckCircle size={16} className="text-green-500" />
-                        Creating components
-                      </span>
-                      <ChevronRight size={16} />
-                    </div>
-                    <div className="text-xs text-neutral-600 px-3">
-                      Building your app
-                    </div>
-                    <div className="space-y-2 ml-1">
-                      {[
-                        "App.jsx",
-                        "TodoList.jsx",
-                        "TodoItem.jsx",
-                        "styles.css",
-                      ].map((file, i) => (
-                        <div
-                          key={file}
-                          className="text-neutral-500 text-sm flex items-center gap-2"
-                        >
-                          <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
-                            <FaCheckCircle size={10} className="text-white" />
-                          </div>
-                          {file}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-20 px-6 border-t border-neutral-800">
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-8 mb-16">
-              {/* AI-Powered Section */}
-              <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
-                <h3 className="text-2xl font-semibold mb-3">
-                  Intelligent code generation
-                </h3>
-                <p className="text-neutral-400 mb-8">
-                  Our AI doesn't just generate code - it understands best
-                  practices, proper architecture, and modern React patterns.
-                </p>
-                <div className="bg-black rounded-lg p-6 space-y-3">
-                  {[
-                    "Component-based architecture",
-                    "Proper state management",
-                    "Responsive design with Tailwind",
-                    "Clean, maintainable code",
-                  ].map((feature, i) => (
-                    <div
-                      key={i}
-                      className="text-neutral-600 text-sm flex items-start gap-3"
-                    >
-                      <FaCheckCircle
-                        size={16}
-                        className="mt-1 text-green-500"
-                      />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border border-neutral-800 rounded-2xl p-8 bg-neutral-900/30 hover:bg-neutral-900/50 transition">
-                <h3 className="text-2xl font-semibold mb-3">
-                  Iterate with conversation
-                </h3>
-                <p className="text-neutral-400 mb-8">
-                  Chat with the AI to refine your application. Add features, fix
-                  bugs, or change designs.
-                </p>
-                <div className="bg-black rounded-lg p-6 border border-neutral-700">
-                  <div className="space-y-4">
-                    <div className="text-neutral-500 text-sm">
-                      <p>"Add a dark mode toggle button"</p>
-                    </div>
-                    <div className="text-green-400 text-sm">
-                      <p>Updated theme system and added toggle</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="flex flex-col items-start">
-                <FaMagic size={24} className="mb-3 text-neutral-400" />
-                <h4 className="font-semibold mb-2">Production-ready code</h4>
-                <p className="text-neutral-500 text-sm">
-                  Generate code that follows industry best practices and
-                  standards.
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <FaRocket size={24} className="mb-3 text-neutral-400" />
-                <h4 className="font-semibold mb-2">Deploy instantly</h4>
-                <p className="text-neutral-500 text-sm">
-                  Download your project and deploy to any hosting platform in
-                  minutes.
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <MdBuild size={24} className="mb-3 text-neutral-400" />
-                <h4 className="font-semibold mb-2">Full control</h4>
-                <p className="text-neutral-500 text-sm">
-                  Own your code completely. Modify, extend, or customize as you
-                  wish.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Bottom Features Grid */}
-        <section className="py-16 px-6 border-t border-neutral-800">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="flex flex-col items-start">
-                <AiFillThunderbolt
-                  size={28}
-                  className="mb-4 text-neutral-400"
-                />
-                <h3 className="text-lg font-semibold mb-2">
-                  Blazing fast development
-                </h3>
-                <p className="text-neutral-500">
-                  Go from idea to deployed application in minutes, not days.
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <FaCode size={28} className="mb-4 text-neutral-400" />
-                <h3 className="text-lg font-semibold mb-2">
-                  Clean, readable code
-                </h3>
-                <p className="text-neutral-500">
-                  Generated code follows best practices and is easy to
-                  understand.
-                </p>
-              </div>
-              <div className="flex flex-col items-start">
-                <FaRocket size={28} className="mb-4 text-neutral-400" />
-                <h3 className="text-lg font-semibold mb-2">Deploy anywhere</h3>
-                <p className="text-neutral-500">
-                  Export your project and deploy to Vercel, Netlify, or any
-                  platform.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-      
-        <section className="py-24 px-6 border-t border-neutral-800">
-          <div className="max-w-2xl mx-auto text-center">
-            <div className="w-16 h-16 mx-auto mb-8 rounded-full bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 border border-neutral-800 flex items-center justify-center">
-              <IoSparkles size={32} className="text-yellow-400" />
-            </div>
-            <h2 className="text-5xl md:text-6xl font-bold mb-8 text-balance">
-              Start building with AI today.
-            </h2>
-            <AuthButton 
-              className="px-8 py-4 border border-neutral-700 rounded-full hover:bg-neutral-900 transition font-semibold"
-              showIcon={false}
-            >
-              START BUILDING FOR FREE
+          
+          <div className="flex items-center gap-4">
+            <AuthButton className="text-sm font-medium px-6 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all flex items-center gap-2">
+              Sign In
             </AuthButton>
           </div>
+        </div>
+      </header>
+
+      <main className="relative z-10 pt-32 pb-20 px-6">
+        {/* Hero Section */}
+        <section className="max-w-5xl mx-auto text-center mb-32">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-white/10 bg-white/5 mb-8"
+          >
+            <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-sm text-zinc-400">AI-Powered Web Builder v2.0</span>
+          </motion.div>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-6xl md:text-8xl font-bold tracking-tight mb-8 bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent"
+          >
+        Generate Creatives<br />
+            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            and scale it fast
+            </span>
+          </motion.h1>
+
+          
+
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-6"
+          >
+            <HoverBorderGradient
+              containerClassName="rounded-full"
+              as="button"
+              className="bg-black text-white flex items-center gap-2 px-8 py-3 text-lg font-semibold"
+              onClick={() => handleNavigation("/chat")}
+            >
+              <IoSparkles className="w-5 h-5" />
+              <span>Start Building Free</span>
+            </HoverBorderGradient>
+            
+            <a 
+              href="https://github.com/rakesh-paulraj1/flaky.ai-" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-zinc-400 hover:text-white text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <FaGithub className="w-5 h-5" />
+              <span>View on GitHub</span>
+            </a>
+          </motion.div>
+
+          {/* Hero Visual / Code Demo */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            className="mt-20 relative mx-auto max-w-4xl"
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-20" />
+            <div className="relative bg-[#0A0A0A] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-white/5">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/20" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/20" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/20" />
+                </div>
+                <div className="ml-4 text-xs text-zinc-500 font-mono">agent-workflow.tsx</div>
+              </div>
+              <div className="p-6 font-mono text-sm text-left overflow-hidden">
+                <div className="flex gap-4">
+                  <div className="text-zinc-700 select-none text-right">
+                    1<br/>2<br/>3<br/>4<br/>5
+                  </div>
+                  <div className="text-zinc-300">
+                    <span className="text-purple-400">const</span> <span className="text-blue-400">Agent</span> = <span className="text-purple-400">await</span> ai.createWorker(&#123;<br/>
+                    &nbsp;&nbsp;role: <span className="text-green-400">"Full Stack Developer"</span>,<br/>
+                    &nbsp;&nbsp;skills: [<span className="text-green-400">"React"</span>, <span className="text-green-400">"Next.js"</span>, <span className="text-green-400">"Prisma"</span>],<br/>
+                    &nbsp;&nbsp;task: <span className="text-green-400">"Build a SaaS dashboard with analytics"</span><br/>
+                    &#125;);
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
-        
-        <footer className="border-t border-neutral-800 py-12 px-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-col md:flex-row items-center justify-between mb-8 pb-8 border-b border-neutral-800">
-              <div className="flex items-center gap-2 mb-6 md:mb-0">
-                <IoSparkles size={20} className="text-yellow-400" />
-                <span className="font-bold bg-gradient-to-r from-yellow-400 via-pink-500 to-blue-500 bg-clip-text text-transparent">
-                  FLAKY AI
-                </span>
-                <span className="text-xs px-2 py-1 rounded-full border border-neutral-700 text-neutral-500">
-                  BETA
-                </span>
+        <section className="max-w-6xl mx-auto mb-32">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">Engineered for excellence</h2>
+            <p className="text-zinc-400 max-w-2xl mx-auto">
+              We've combined the power of LLMs with specialized agents to create a development 
+              experience that feels like magic, but outputs production-grade code.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Feature 1 - Large */}
+            <div className="md:col-span-2 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-colors">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                <FaCode className="w-32 h-32" />
               </div>
-              <nav className="flex items-center gap-8 text-neutral-400 text-sm">
-                <Link href="/" className="hover:text-white transition">
-                  Home
-                </Link>
-                <Link href="/chat" className="hover:text-white transition">
-                  Features
-                </Link>
-                <a href="#contact" className="hover:text-white transition">
-                  Contact
-                </a>
-                <a href="#privacy" className="hover:text-white transition">
-                  Privacy Policy
-                </a>
-              </nav>
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6">
+                  <MdAutoAwesome className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3">Autonomous Refinement</h3>
+                <p className="text-zinc-400 max-w-md">
+                  Our agents don't just write code once. They self-critique, detect errors, 
+                  fix bugs, and refine the UI until it meets professional standards.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 2 */}
+            <div className="md:col-span-1 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-colors">
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mb-6">
+                  <MdSpeed className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3">Instant Deploy</h3>
+                <p className="text-zinc-400">
+                  One-click deployment to global edge networks. Your app goes live in seconds.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="md:col-span-1 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-colors">
+              <div className="relative z-10">
+                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mb-6">
+                  <MdDevices className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3">Responsive</h3>
+                <p className="text-zinc-400">
+                  Mobile-first architecture ensures your application looks stunning on any device.
+                </p>
+              </div>
+            </div>
+
+            {/* Feature 4 - Large */}
+            <div className="md:col-span-2 group relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-8 hover:bg-white/10 transition-colors">
+              <div className="absolute bottom-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
+                <IoLayers className="w-32 h-32" />
+              </div>
+              <div className="relative z-10">
+                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mb-6">
+                  <FaRocket className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold mb-3">Modern Tech Stack</h3>
+                <p className="text-zinc-400 max-w-md">
+                  Pre-configured with Next.js 14, Tailwind CSS, TypeScript, and Prisma. 
+                  No boilerplate setup, just pure creation.
+                </p>
+              </div>
             </div>
           </div>
-        </footer>
+        </section>
+
+        {/* CTA Section */}
+        <section className="max-w-4xl mx-auto text-center py-20 border-t border-white/10">
+          <h2 className="text-4xl md:text-5xl font-bold mb-8">Ready to build the future?</h2>
+            <HoverBorderGradient
+                containerClassName="rounded-full mx-auto"
+                as="button"
+                className="bg-zinc-900 text-white flex items-center gap-2 px-10 py-4 text-xl font-semibold"
+                onClick={() => handleNavigation("/creative")}
+            >
+                <FaBolt className="text-yellow-400" />
+                <span>Start Creating Now</span>
+            </HoverBorderGradient>
+        </section>
       </main>
+      
+      {/* Footer */}
+      <footer className="border-t border-white/10 bg-black py-12 text-center text-zinc-500 text-sm">
+        <p>
+          &copy; {new Date().getFullYear()} Flaky AI. All rights reserved. 
+          <span className="mx-2">|</span>
+          Created by <a href="https://www.rakeshpaulraj.me/" target="_blank" rel="noopener noreferrer" className="text-zinc-400 hover:text-white transition-colors">Rakesh</a>
+        </p>
+      </footer>
+      <AuthModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
     </div>
   );
 }

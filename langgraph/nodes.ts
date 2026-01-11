@@ -456,15 +456,6 @@ API FETCH LOGIC
 only use the api end point provided by the user and if the user has partial api data or url data please dont add the cta 
 ${state.user_prompt}
 
-CRITICAL STOPPING RULE:
-After create_file() returns "Home.jsx updated successfully" → YOU MUST STOP IMMEDIATELY
-Do NOT:
-- Verify by reading the file again
-- Call create_file() multiple times
-- Make any additional tool calls
-- Try to "improve" or "fix" anything
-
-Once create_file() succeeds → YOUR TASK IS COMPLETE → RETURN IMMEDIATELY
 
 IMPLEMENTATION GUIDELINES:
 - Include ALL imports at the top (React, hooks, icons, etc.)
@@ -477,7 +468,7 @@ IMPLEMENTATION GUIDELINES:
 CRITICAL RULES:
 - Write the COMPLETE file content - NO placeholders like "...existing code..."
 - Include ALL features from the plan in one cohesive Home.jsx
-- Maximum 2 tool calls: read_file() once, create_file() once
+- If there is a phone number input set a limit of 10 numbers keep constraints
 - After create_file() succeeds → DONE → NO MORE ACTIONS
 
 START NOW: Read → Write → STOP IMMEDIATELY!`;
