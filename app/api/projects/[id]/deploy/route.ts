@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { sandboxService } from "@/langgraph/services";
 import prisma from "@/lib/prisma";
 
+// Vercel serverless function configuration
+export const maxDuration = 120; // 2 minutes for build + deploy
+export const dynamic = "force-dynamic";
+
 const NETLIFY_API = "https://api.netlify.com/api/v1";
 
 export async function POST(

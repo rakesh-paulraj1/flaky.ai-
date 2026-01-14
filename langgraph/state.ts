@@ -10,10 +10,6 @@ export const AgentState = Annotation.Root({
     reducer: (_, y) => y,
     default: () => "",
   }),
-  enhanced_prompt: Annotation<string>({
-    reducer: (_, y) => y,
-    default: () => "",
-  }),
   product_name: Annotation<string>({
     reducer: (_, y) => y,
     default: () => "",
@@ -31,16 +27,6 @@ export const AgentState = Annotation.Root({
     reducer: (_, y) => y,
     default: () => "",
   }),
-
-  files_created: Annotation<string[]>({
-    reducer: (x, y) => [...x, ...y],
-    default: () => [],
-  }),
-  files_modified: Annotation<string[]>({
-    reducer: (x, y) => [...x, ...y],
-    default: () => [],
-  }),
-
   sandbox: Annotation<Sandbox | null>({
     reducer: (_, y) => y,
     default: () => null,

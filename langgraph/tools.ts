@@ -1,4 +1,4 @@
-import { tool, ToolRuntime } from "@langchain/core/tools";
+import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { Sandbox } from "@e2b/code-interpreter";
 import * as path from "path";
@@ -19,31 +19,49 @@ function fixEscapeSequences(content: string): string {
 
 export function createToolsWithContext(sandbox: Sandbox, projectId?: string) {
   const createFileTool = tool(
-    async ({ content }, config: ToolRuntime) => {
-      const writer = config.writer;
+    async ({ content }) => {
+      console.log("=== CREATE_FILE TOOL CALLED ===");
+      console.log("Content length:", content?.length);
+      console.log("ProjectId:", projectId);
+
       try {
         const fixedContent = fixEscapeSequences(content);
         const homePath = path.join(REACT_APP_PATH, "Home.jsx");
-        if (writer) {
-          writer(`Updating the Home.jsx file`);
+        console.log("Writing to path:", homePath);
+
+       
+        let sandboxWriteSuccess = false;
+        try {
+          console.log("Attempting sandbox write...");
+          const write = await sandbox.files.write(homePath, fixedContent);
+          console.log("Sandbox write result:", write);
+          sandboxWriteSuccess = true;
+        } catch (sandboxError) {
+          console.error("SANDBOX WRITE FAILED:", sandboxError);
+         
         }
 
-        await sandbox.files.write(homePath, fixedContent);
-
+        
         if (projectId) {
           try {
             await prisma.project.update({
               where: { chatId: projectId },
               data: { generatedCode: fixedContent },
             });
+            console.log("Saved code to DB for project:", projectId);
           } catch (dbError) {
             console.error("Failed to save generated code to DB:", dbError);
           }
         }
 
-        return `Home.jsx updated successfully with new content.`;
+        if (sandboxWriteSuccess) {
+          return `Home.jsx updated successfully with new content.`;
+        } else {
+          return `Home.jsx saved to database but sandbox write failed. Code will appear on reload.`;
+        }
       } catch (e) {
         const error = e instanceof Error ? e.message : String(e);
+        console.error("Tool execution error:", error);
         return `Failed to update Home.jsx: ${error}`;
       }
     },
@@ -72,18 +90,17 @@ Note: Put ALL your application logic, state, and UI in Home.jsx since this is a 
   );
 
   const readFileTool = tool(
-    async (config: ToolRuntime) => {
+    async () => {
+      console.log("=== READ_FILE TOOL CALLED ===");
       try {
         const homePath = path.join(REACT_APP_PATH, "Home.jsx");
-        const writer = config.writer;
-        if (writer) {
-          writer(`Reading the Home.jsx file`);
-        }
+        console.log("Reading from path:", homePath);
         const content = await sandbox.files.read(homePath);
-
+        console.log("Read content length:", content?.length);
         return `Content from Home.jsx:\n${content}`;
       } catch (e) {
         const error = e instanceof Error ? e.message : String(e);
+        console.error("Read file error:", error);
         return `Failed to read Home.jsx: ${error}`;
       }
     },

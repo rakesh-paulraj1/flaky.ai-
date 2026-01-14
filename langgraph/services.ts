@@ -1,6 +1,7 @@
 import { Sandbox } from "@e2b/code-interpreter";
 import fs from "fs/promises";
 import path from "path";
+import prisma from "@/lib/prisma";
 
 const SANDBOX_TIMEOUT = 300 * 1000;
 const PROJECTS_DIR = path.join(process.cwd(), "projects");
@@ -59,35 +60,33 @@ export class SandboxService {
     const current_time = Date.now();
     const existing = this.sandboxes.get(id);
 
+    // 1. Check in-memory cache first
     if (existing) {
-      console.log("saandbox already exixts for id", id);
+      console.log("Sandbox already exists in memory for id", id);
       const time_elapsed = current_time - existing.lastAccess;
       if (time_elapsed < SANDBOX_TIMEOUT) {
         try {
           await existing.sandbox.setTimeout(SANDBOX_TIMEOUT);
           existing.lastAccess = current_time;
-          
+
           const scheduled = this.scheduledCloses.get(id);
           if (scheduled) {
             clearTimeout(scheduled);
             this.scheduledCloses.delete(id);
           }
-          console.log(` Reusing existing sandbox for ${id}`);
+          console.log(`Reusing existing sandbox for ${id}`);
           if (!existing.serverReady) {
-            console.log(` Dev server not ready for ${id}, starting...`);
+            console.log(`Dev server not ready for ${id}, starting...`);
             await this.startDevServer(id, existing.sandbox);
           }
 
           return existing.sandbox;
         } catch (error) {
-          console.warn(
-            `Defunct sandbox detected for ${id}:`,
-            error
-          );
+          console.warn(`Defunct sandbox detected for ${id}:`, error);
           this.sandboxes.delete(id);
         }
       } else {
-        console.log(` Sandbox expired for ${id}, recreating...`);
+        console.log(`Sandbox expired for ${id}, recreating...`);
         try {
           await existing.sandbox.kill();
         } catch (e) {
@@ -97,12 +96,67 @@ export class SandboxService {
       }
     }
 
+    // 2. Try to reconnect using sandboxId from database (for Vercel serverless)
+    try {
+      const project = await prisma.project.findUnique({
+        where: { chatId: id },
+        select: { sandboxId: true },
+      });
+
+      if (project?.sandboxId) {
+        console.log(
+          `Attempting to reconnect to sandbox ${project.sandboxId} for project ${id}`
+        );
+        try {
+          const sandbox = await Sandbox.connect(project.sandboxId);
+          await sandbox.setTimeout(SANDBOX_TIMEOUT);
+
+          this.sandboxes.set(id, {
+            sandbox,
+            lastAccess: current_time,
+            serverReady: true, // Assume server is ready on reconnect
+          });
+
+          console.log(
+            `Successfully reconnected to sandbox ${project.sandboxId}`
+          );
+          return sandbox;
+        } catch (reconnectError) {
+          console.warn(
+            `Failed to reconnect to sandbox ${project.sandboxId}:`,
+            reconnectError
+          );
+          // Clear stale sandboxId from database
+          await prisma.project.update({
+            where: { chatId: id },
+            data: { sandboxId: null },
+          });
+        }
+      }
+    } catch (dbError) {
+      console.error("Error checking database for sandboxId:", dbError);
+    }
+
+    // 3. Create new sandbox
     console.log(`Initializing new sandbox for project id = ${id}`);
     const sandbox = await Sandbox.create(E2B_TEMPLATE_ID);
 
     console.log(
       `[Lifecycle]Sandbox created: ${sandbox.sandboxId} for project ${id}`
     );
+
+    // Save sandboxId to database for future reconnection
+    try {
+      await prisma.project.update({
+        where: { chatId: id },
+        data: { sandboxId: sandbox.sandboxId },
+      });
+      console.log(
+        `Saved sandboxId ${sandbox.sandboxId} to database for project ${id}`
+      );
+    } catch (dbError) {
+      console.error("Failed to save sandboxId to database:", dbError);
+    }
 
     this.sandboxes.set(id, {
       sandbox,
@@ -140,18 +194,14 @@ export class SandboxService {
       await sandbox.commands.run("cd /home/user/react-app && npm run dev", {
         background: true,
       });
-      
-    
+
       const info = this.sandboxes.get(id);
       if (info) {
         info.serverReady = true;
         console.log(` Dev server marked as ready for ${id}`);
       }
     } catch (error) {
-      console.error(
-        `Failed to start dev server for ${id}:`,
-        error
-      );
+      console.error(`Failed to start dev server for ${id}:`, error);
     }
   }
 
@@ -228,15 +278,10 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
         console.log(`Found ${files.length} files for project ${id}`);
         return files;
       }
-      console.error(`List files script failed for ${id}:`,
-        proc.stderr
-      );
+      console.error(`List files script failed for ${id}:`, proc.stderr);
       return [];
     } catch (error) {
-      console.error(
-        `Failed to list files for project ${id}:`,
-        error
-      );
+      console.error(`Failed to list files for project ${id}:`, error);
       return [];
     }
   }
@@ -296,10 +341,7 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
         console.log(`Snapshot complete for ${id}`);
       }
     } catch (error) {
-      console.error(
-        `Failed to snapshot files for ${id}:`,
-        error
-      );
+      console.error(`Failed to snapshot files for ${id}:`, error);
     }
   }
 
@@ -340,7 +382,7 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
 
   public async closeSandbox(id: string) {
     const info = this.sandboxes.get(id);
-   
+
     const scheduled = this.scheduledCloses.get(id);
     if (scheduled) {
       clearTimeout(scheduled);
@@ -357,18 +399,17 @@ print(json.dumps(list_files_recursive("/home/user/react-app")))
       this.sandboxes.delete(id);
     }
   }
-
 }
-
-
-
 
 const globalForSandbox = globalThis as unknown as {
   sandboxService: SandboxService | undefined;
 };
 
+// Cache the sandbox service on globalThis to persist across serverless invocations
+// This is critical for Vercel where each request might be a new instance
 export const sandboxService =
   globalForSandbox.sandboxService ?? SandboxService.getInstance();
 
-if (process.env.NODE_ENV !== "production")
-  globalForSandbox.sandboxService = sandboxService;
+// Always cache to globalThis (including production)
+// Without this, Vercel serverless functions lose sandbox references
+globalForSandbox.sandboxService = sandboxService;

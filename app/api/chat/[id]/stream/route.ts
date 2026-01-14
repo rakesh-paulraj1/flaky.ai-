@@ -4,6 +4,12 @@ import { authentication } from "@/app/api/auth/[...nextauth]/route";
 import prisma from "@/lib/prisma";
 import { runAgent } from "@/langgraph/graph";
 import { sandboxService } from "@/langgraph/services";
+
+// Vercel serverless function configuration
+// maxDuration: 300 seconds (5 minutes) - requires Pro/Enterprise plan
+// For hobby plan, max is 60 seconds
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

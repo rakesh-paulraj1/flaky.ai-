@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { sandboxService } from "@/langgraph/services";
 import prisma from "@/lib/prisma";
 
+
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 const HOME_FILE_PATH = "/home/user/react-app/src/pages/Home.jsx";
 
 export async function GET(

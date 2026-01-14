@@ -71,6 +71,7 @@ model Project {
   state                   ProjectState @default(INITIAL)
   deployedUrl             String?
   netlifySiteId           String?
+  sandboxId               String?
   user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt

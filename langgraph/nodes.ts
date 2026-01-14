@@ -145,7 +145,7 @@ export async function plannerNode(
       message: "Planning the application architecture...",
     });
 
-    const enhancedPrompt = state.enhanced_prompt || state.user_prompt || "";
+    const userPrompt =  state.user_prompt || "";
     const projectId = state.project_id || "";
 
     let previousContext = "";
@@ -211,7 +211,7 @@ Product Name: ${productName}
 Product Description: ${productDescription}
 
 === USER CUSTOMIZATION REQUEST ===
-${enhancedPrompt}
+${userPrompt}
 
 ${previousContext}
 
@@ -454,7 +454,6 @@ IMPLEMENTATION GUIDELINES:
 CRITICAL RULES:
 - Write the COMPLETE file content - NO placeholders like "...existing code..."
 - Include ALL features from the plan in one cohesive Home.jsx
-- If there is a phone number input set a limit of 10 numbers keep constraints
 - After create_file() succeeds → DONE → NO MORE ACTIONS
 
 START NOW: Read → Write → STOP IMMEDIATELY!`;
@@ -486,6 +485,14 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
         );
 
         streamLoop: for await (const chunk of stream) {
+          // Debug: log all chunks to see what's coming through
+          console.log("=== STREAM CHUNK ===");
+          console.log("Chunk keys:", Object.keys(chunk || {}));
+          console.log(
+            "Chunk:",
+            JSON.stringify(chunk, null, 2).substring(0, 500)
+          );
+
           if (fileCreatedSuccessfully || toolCallCount >= MAX_TOOL_CALLS) {
             break streamLoop;
           }
@@ -557,8 +564,6 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
       });
 
       return {
-        files_created: filesCreated,
-        files_modified: filesModified,
         current_node: "builder",
         success: fileCreatedSuccessfully,
         retry_count: retryCount + 1,
@@ -583,8 +588,6 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
         });
 
         return {
-          files_created: [],
-          files_modified: [],
           current_node: "builder",
           success: false,
           execution_log: [
@@ -608,8 +611,6 @@ START NOW: Read → Write → STOP IMMEDIATELY!`;
       });
 
       return {
-        files_created: [],
-        files_modified: [],
         current_node: "builder",
         success: false,
         execution_log: [
@@ -876,10 +877,7 @@ export async function executorNode(
       message: "Starting application execution...",
     });
 
-    const filesCreated = state.files_created || [];
-    const hasFiles = filesCreated.length > 0;
 
-    if (hasFiles) {
       console.log("Executor: Starting dev server...");
       try {
         await sandbox.commands
@@ -939,24 +937,6 @@ export async function executorNode(
           ],
         };
       }
-    } else {
-      await safeSendEvent(sendEvent, {
-        e: "executor_skipped",
-        message: "No files to execute",
-      });
-
-      return {
-        current_node: "executor",
-        success: true,
-        execution_log: [
-          {
-            node: "executor",
-            status: "skipped",
-            message: "No files were created",
-          },
-        ],
-      };
-    }
   } catch (e) {
     const errorMsg = `Executor node error: ${
       e instanceof Error ? e.message : String(e)

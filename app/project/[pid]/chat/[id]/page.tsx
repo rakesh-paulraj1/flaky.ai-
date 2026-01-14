@@ -18,9 +18,7 @@ export default function ChatIdPage() {
   const chatId = params.id as string;
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [appUrl, setAppUrl] = useState<string | null>(null);
   const [isBuilding, setIsBuilding] = useState(false);
   const [previewWidth, setPreviewWidth] = useState(50);
@@ -106,7 +104,6 @@ export default function ChatIdPage() {
           streamRef.current = null;
         } else if (msg.type === "error") {
           console.error("Stream error:", msg.message);
-          setError(msg.message || "Streaming error");
           setIsBuilding(false);
           es.close();
           streamRef.current = null;
@@ -175,11 +172,6 @@ export default function ChatIdPage() {
 
     const fetchMessagesAndStream = async () => {
       try {
-        setIsLoading(true);
-        
-        const fetchedMessages = await getChatMessages(chatId);
-        setMessages(fetchedMessages);
-
         try {
           const projectRes = await fetch(`/api/sandbox/${chatId}`);
           if (projectRes.ok) {
@@ -192,6 +184,7 @@ export default function ChatIdPage() {
               setAppUrl(data.deployedUrl);
               setIsCheckingUrl(false);
               setViewMode("analytics");
+              return; 
               
             } else {
               const url = `https://${data.host}`;
@@ -203,6 +196,9 @@ export default function ChatIdPage() {
           console.error("Error fetching project info:", err);
         }
 
+        const fetchedMessages = await getChatMessages(chatId);
+        setMessages(fetchedMessages);
+
         if (fetchedMessages.length > 0 && !hasStreamedRef.current) {
           const lastMessage = fetchedMessages[fetchedMessages.length - 1];
           if (lastMessage.role === "user") {
@@ -213,9 +209,9 @@ export default function ChatIdPage() {
 
       } catch (err) {
         console.error("Error fetching messages:", err);
-        setError(err instanceof Error ? err.message : "Failed to load messages");
+       
       } finally {
-        setIsLoading(false);
+        
       }
     };
 
@@ -224,7 +220,7 @@ export default function ChatIdPage() {
     return () => {
       closeStream();
     };
-  }, [chatId, openStream, closeStream, checkUrlReady]);
+  }, [chatId, openStream, closeStream, checkUrlReady, pollUrlUntilReady]);
 
   useEffect(() => {
     return () => {
@@ -308,7 +304,6 @@ export default function ChatIdPage() {
 
      openStream();
   } catch (err) {
-    setError(err instanceof Error ? err.message : "Failed to send message");
     setIsBuilding(false);
   }
 };
